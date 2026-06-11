@@ -3,7 +3,7 @@ set -e
 
 BINARY_NAME="crctl"
 INSTALL_DIR="$HOME/.local/bin"
-GITHUB_URL="https://raw.githubusercontent.com/JIEHT9U/crctl/main/dist/index.js"
+GITHUB_URL="https://raw.githubusercontent.com/JIEHT9U/crctl/main/dist/index.cjs"
 
 echo "🚀 Installing ${BINARY_NAME}..."
 

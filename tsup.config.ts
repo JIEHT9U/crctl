@@ -2,7 +2,7 @@ import { defineConfig } from "tsup";
 
 export default defineConfig({
   entry: ["src/index.ts"],
-  format: ["esm"],
+  format: ["cjs"], // CommonJS to avoid ESM/CJS interop issues with commander
   target: "node20",
   dts: false,
   clean: true,

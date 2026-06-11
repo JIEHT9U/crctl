@@ -1,17 +1,12 @@
 #!/usr/bin/env node
+"use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
-  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
-}) : x)(function(x) {
-  if (typeof require !== "undefined") return require.apply(this, arguments);
-  throw Error('Dynamic require of "' + x + '" is not supported');
-});
-var __commonJS = (cb, mod) => function __require2() {
+var __commonJS = (cb, mod) => function __require() {
   return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __copyProps = (to, from, except, desc) => {
@@ -33,7 +28,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 
 // node_modules/commander/lib/error.js
 var require_error = __commonJS({
-  "node_modules/commander/lib/error.js"(exports) {
+  "node_modules/commander/lib/error.js"(exports2) {
     "use strict";
     var CommanderError2 = class extends Error {
       /**
@@ -62,14 +57,14 @@ var require_error = __commonJS({
         this.name = this.constructor.name;
       }
     };
-    exports.CommanderError = CommanderError2;
-    exports.InvalidArgumentError = InvalidArgumentError2;
+    exports2.CommanderError = CommanderError2;
+    exports2.InvalidArgumentError = InvalidArgumentError2;
   }
 });
 
 // node_modules/commander/lib/argument.js
 var require_argument = __commonJS({
-  "node_modules/commander/lib/argument.js"(exports) {
+  "node_modules/commander/lib/argument.js"(exports2) {
     "use strict";
     var { InvalidArgumentError: InvalidArgumentError2 } = require_error();
     var Argument2 = class {
@@ -190,14 +185,14 @@ var require_argument = __commonJS({
       const nameOutput = arg.name() + (arg.variadic === true ? "..." : "");
       return arg.required ? "<" + nameOutput + ">" : "[" + nameOutput + "]";
     }
-    exports.Argument = Argument2;
-    exports.humanReadableArgName = humanReadableArgName;
+    exports2.Argument = Argument2;
+    exports2.humanReadableArgName = humanReadableArgName;
   }
 });
 
 // node_modules/commander/lib/help.js
 var require_help = __commonJS({
-  "node_modules/commander/lib/help.js"(exports) {
+  "node_modules/commander/lib/help.js"(exports2) {
     "use strict";
     var { humanReadableArgName } = require_argument();
     var Help2 = class {
@@ -606,13 +601,13 @@ var require_help = __commonJS({
         }).join("\n");
       }
     };
-    exports.Help = Help2;
+    exports2.Help = Help2;
   }
 });
 
 // node_modules/commander/lib/option.js
 var require_option = __commonJS({
-  "node_modules/commander/lib/option.js"(exports) {
+  "node_modules/commander/lib/option.js"(exports2) {
     "use strict";
     var { InvalidArgumentError: InvalidArgumentError2 } = require_error();
     var Option2 = class {
@@ -878,14 +873,14 @@ var require_option = __commonJS({
       }
       return { shortFlag, longFlag };
     }
-    exports.Option = Option2;
-    exports.DualOptions = DualOptions;
+    exports2.Option = Option2;
+    exports2.DualOptions = DualOptions;
   }
 });
 
 // node_modules/commander/lib/suggestSimilar.js
 var require_suggestSimilar = __commonJS({
-  "node_modules/commander/lib/suggestSimilar.js"(exports) {
+  "node_modules/commander/lib/suggestSimilar.js"(exports2) {
     "use strict";
     var maxDistance = 3;
     function editDistance(a, b) {
@@ -960,19 +955,19 @@ var require_suggestSimilar = __commonJS({
       }
       return "";
     }
-    exports.suggestSimilar = suggestSimilar;
+    exports2.suggestSimilar = suggestSimilar;
   }
 });
 
 // node_modules/commander/lib/command.js
 var require_command = __commonJS({
-  "node_modules/commander/lib/command.js"(exports) {
+  "node_modules/commander/lib/command.js"(exports2) {
     "use strict";
-    var EventEmitter = __require("events").EventEmitter;
-    var childProcess = __require("child_process");
-    var path = __require("path");
-    var fs = __require("fs");
-    var process2 = __require("process");
+    var EventEmitter = require("events").EventEmitter;
+    var childProcess = require("child_process");
+    var path = require("path");
+    var fs = require("fs");
+    var process2 = require("process");
     var { Argument: Argument2, humanReadableArgName } = require_argument();
     var { CommanderError: CommanderError2 } = require_error();
     var { Help: Help2 } = require_help();
@@ -3004,30 +2999,30 @@ Expecting one of '${allowedValues.join("', '")}'`);
         return arg;
       });
     }
-    exports.Command = Command2;
+    exports2.Command = Command2;
   }
 });
 
 // node_modules/commander/index.js
 var require_commander = __commonJS({
-  "node_modules/commander/index.js"(exports) {
+  "node_modules/commander/index.js"(exports2) {
     "use strict";
     var { Argument: Argument2 } = require_argument();
     var { Command: Command2 } = require_command();
     var { CommanderError: CommanderError2, InvalidArgumentError: InvalidArgumentError2 } = require_error();
     var { Help: Help2 } = require_help();
     var { Option: Option2 } = require_option();
-    exports.program = new Command2();
-    exports.createCommand = (name) => new Command2(name);
-    exports.createOption = (flags, description) => new Option2(flags, description);
-    exports.createArgument = (name, description) => new Argument2(name, description);
-    exports.Command = Command2;
-    exports.Option = Option2;
-    exports.Argument = Argument2;
-    exports.Help = Help2;
-    exports.CommanderError = CommanderError2;
-    exports.InvalidArgumentError = InvalidArgumentError2;
-    exports.InvalidOptionArgumentError = InvalidArgumentError2;
+    exports2.program = new Command2();
+    exports2.createCommand = (name) => new Command2(name);
+    exports2.createOption = (flags, description) => new Option2(flags, description);
+    exports2.createArgument = (name, description) => new Argument2(name, description);
+    exports2.Command = Command2;
+    exports2.Option = Option2;
+    exports2.Argument = Argument2;
+    exports2.Help = Help2;
+    exports2.CommanderError = CommanderError2;
+    exports2.InvalidArgumentError = InvalidArgumentError2;
+    exports2.InvalidOptionArgumentError = InvalidArgumentError2;
   }
 });
 
@@ -3049,23 +3044,18 @@ var {
 } = import_index.default;
 
 // src/index.ts
-import { execSync, spawnSync } from "child_process";
-import { createHash } from "crypto";
-import {
-  readFileSync,
-  writeFileSync,
-  existsSync,
-  mkdirSync
-} from "fs";
-import { join } from "path";
-import { homedir } from "os";
+var import_node_child_process = require("child_process");
+var import_node_crypto = require("crypto");
+var import_node_fs = require("fs");
+var import_node_path = require("path");
+var import_node_os = require("os");
 var SESSION_PREFIX = "claude-rc";
-var CONFIG_DIR = process.platform === "darwin" ? join(homedir(), "Library", "Application Support", "crctl") : join(homedir(), ".config", "crctl");
-var SESSIONS_FILE = join(CONFIG_DIR, "sessions.json");
+var CONFIG_DIR = process.platform === "darwin" ? (0, import_node_path.join)((0, import_node_os.homedir)(), "Library", "Application Support", "crctl") : (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "crctl");
+var SESSIONS_FILE = (0, import_node_path.join)(CONFIG_DIR, "sessions.json");
 function loadSessions() {
-  if (existsSync(SESSIONS_FILE)) {
+  if ((0, import_node_fs.existsSync)(SESSIONS_FILE)) {
     try {
-      return JSON.parse(readFileSync(SESSIONS_FILE, "utf8"));
+      return JSON.parse((0, import_node_fs.readFileSync)(SESSIONS_FILE, "utf8"));
     } catch {
       return { sessions: {} };
     }
@@ -3073,17 +3063,17 @@ function loadSessions() {
   return { sessions: {} };
 }
 function saveSessions(data) {
-  mkdirSync(CONFIG_DIR, { recursive: true });
-  writeFileSync(SESSIONS_FILE, JSON.stringify(data, null, 2));
+  (0, import_node_fs.mkdirSync)(CONFIG_DIR, { recursive: true });
+  (0, import_node_fs.writeFileSync)(SESSIONS_FILE, JSON.stringify(data, null, 2));
 }
 function dirHash(dir) {
-  return createHash("md5").update(dir).digest("hex").slice(0, 8);
+  return (0, import_node_crypto.createHash)("md5").update(dir).digest("hex").slice(0, 8);
 }
 function sessionName(dir) {
   return `${SESSION_PREFIX}-${dirHash(dir)}`;
 }
 function run(cmd, args) {
-  const result = spawnSync(cmd, args, { encoding: "utf8", timeout: 1e4 });
+  const result = (0, import_node_child_process.spawnSync)(cmd, args, { encoding: "utf8", timeout: 1e4 });
   return {
     stdout: result.stdout?.trim() ?? "",
     stderr: result.stderr?.trim() ?? "",
@@ -3118,7 +3108,7 @@ function extractLink(content) {
 }
 function findClaudeProcesses() {
   try {
-    const output = execSync("ps aux", { encoding: "utf8" });
+    const output = (0, import_node_child_process.execSync)("ps aux", { encoding: "utf8" });
     const pids = [];
     for (const line of output.split("\n")) {
       if (line.includes("claude") && line.includes("remote-control")) {
@@ -3163,7 +3153,7 @@ function cmdStart() {
   ]);
   let link = null;
   for (let i = 0; i < 30; i++) {
-    spawnSync("sleep", ["0.5"]);
+    (0, import_node_child_process.spawnSync)("sleep", ["0.5"]);
     const content = getPaneContent(name);
     link = extractLink(content);
     if (link) break;
@@ -3202,7 +3192,7 @@ function cmdStop(options) {
       run("tmux", ["kill-session", "-t", s.name]);
       delete data.sessions[s.cwd];
     }
-    spawnSync("sleep", ["1"]);
+    (0, import_node_child_process.spawnSync)("sleep", ["1"]);
     const pids2 = findClaudeProcesses();
     if (pids2.length > 0) {
       console.log(`   \u0423\u0431\u0438\u0432\u0430\u044E \u0437\u0430\u0432\u0438\u0441\u0448\u0438\u0435 \u043F\u0440\u043E\u0446\u0435\u0441\u0441\u044B: ${pids2.join(" ")}`);
@@ -3220,7 +3210,7 @@ function cmdStop(options) {
     run("tmux", ["kill-session", "-t", name]);
     stopped = true;
     delete data.sessions[cwd];
-    spawnSync("sleep", ["1"]);
+    (0, import_node_child_process.spawnSync)("sleep", ["1"]);
   }
   const pids = findClaudeProcesses();
   if (pids.length > 0) {
@@ -3355,7 +3345,7 @@ function cmdDoctor() {
     {
       name: "Node.js",
       check: () => {
-        const version = execSync("node --version", {
+        const version = (0, import_node_child_process.execSync)("node --version", {
           encoding: "utf8"
         }).trim();
         return { ok: true, info: version };
@@ -3534,11 +3524,11 @@ function cmdSetup() {
   };
   const compScript = scripts[shellName];
   if (shellName === "fish") {
-    const completionsDir = join(homedir(), ".config", "fish", "completions");
-    const targetPath = join(completionsDir, "crctl.fish");
+    const completionsDir = (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "fish", "completions");
+    const targetPath = (0, import_node_path.join)(completionsDir, "crctl.fish");
     try {
-      mkdirSync(completionsDir, { recursive: true });
-      writeFileSync(targetPath, compScript);
+      (0, import_node_fs.mkdirSync)(completionsDir, { recursive: true });
+      (0, import_node_fs.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 \u0410\u0432\u0442\u043E\u0434\u043E\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ${targetPath}`);
       console.log("");
       console.log("   \u041F\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u0438 \u0442\u0435\u0440\u043C\u0438\u043D\u0430\u043B \u0438\u043B\u0438 \u0432\u044B\u043F\u043E\u043B\u043D\u0438:");
@@ -3551,9 +3541,9 @@ function cmdSetup() {
       console.log(`   crctl generate fish > ${targetPath}`);
     }
   } else if (shellName === "bash") {
-    const targetPath = join(homedir(), ".bash_completion_crctl");
+    const targetPath = (0, import_node_path.join)((0, import_node_os.homedir)(), ".bash_completion_crctl");
     try {
-      writeFileSync(targetPath, compScript);
+      (0, import_node_fs.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 \u0421\u043A\u0440\u0438\u043F\u0442 \u0430\u0432\u0442\u043E\u0434\u043E\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u044F: ${targetPath}`);
       console.log("");
       console.log("   \u0414\u043E\u0431\u0430\u0432\u044C \u0432 ~/.bashrc:");
@@ -3566,11 +3556,11 @@ function cmdSetup() {
       console.log(`   echo 'source ${targetPath}' >> ~/.bashrc`);
     }
   } else if (shellName === "zsh") {
-    const zshDir = join(homedir(), ".oh-my-zsh", "custom", "plugins", "crctl");
-    const targetPath = join(zshDir, "_crctl");
+    const zshDir = (0, import_node_path.join)((0, import_node_os.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl");
+    const targetPath = (0, import_node_path.join)(zshDir, "_crctl");
     try {
-      mkdirSync(zshDir, { recursive: true });
-      writeFileSync(targetPath, compScript);
+      (0, import_node_fs.mkdirSync)(zshDir, { recursive: true });
+      (0, import_node_fs.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 \u0421\u043A\u0440\u0438\u043F\u0442 \u0430\u0432\u0442\u043E\u0434\u043E\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u044F: ${targetPath}`);
       console.log("");
       console.log("   \u0414\u043E\u0431\u0430\u0432\u044C 'crctl' \u0432 plugins \u0432 ~/.zshrc");

@@ -5,7 +5,7 @@
   "type": "module",
   "main": "./dist/index.js",
   "bin": {
-    "crctl": "./dist/index.js"
+    "crctl": "./dist/index.cjs"
   },
   "files": [
     "dist"
