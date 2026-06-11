@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.2](https://github.com/JIEHT9U/crctl/compare/v0.3.1...v0.3.2) (2026-06-11)
+
+### Bug Fixes
+
+* use GITHUB_RELESE_TOKEN in release-it config ([5313ae7](https://github.com/JIEHT9U/crctl/commit/5313ae72ae989353edaad4ed8ff059e5219b622b))
+
 ## [0.3.1](https://github.com/JIEHT9U/crctl/compare/v0.3.0...v0.3.1) (2026-06-11)
 
 ### Bug Fixes
