@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.0](https://github.com/JIEHT9U/crctl/compare/v0.6.1...v0.7.0) (2026-06-11)
+
+### Features
+
+* --spawn flag for start, Option+D detach key, platform hints ([e953dc0](https://github.com/JIEHT9U/crctl/commit/e953dc0d2b4fc3d317e5eafb75c3fe792ed778d0))
+
 ## [0.6.1](https://github.com/JIEHT9U/crctl/compare/v0.6.0...v0.6.1) (2026-06-11)
 
 ### Bug Fixes

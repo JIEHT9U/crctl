@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-var __VERSION__ = "0.6.1";
+var __VERSION__ = "0.7.0";
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
