@@ -1,6 +1,6 @@
 {
   "name": "crctl",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "CLI utility for managing Claude Code remote-control sessions via tmux",
   "type": "module",
   "main": "./dist/index.js",

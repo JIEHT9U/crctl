@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.1](https://github.com/JIEHT9U/crctl/compare/v0.6.0...v0.6.1) (2026-06-11)
+
+### Bug Fixes
+
+* improve attach UX — clear detach hint box and tmux status bar ([880818f](https://github.com/JIEHT9U/crctl/commit/880818f48325073ed1e0acac1dfab7250c50f1f5))
+
 ## [0.6.0](https://github.com/JIEHT9U/crctl/compare/v0.5.0...v0.6.0) (2026-06-11)
 
 ### Features
