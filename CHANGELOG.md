@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.6.0](https://github.com/JIEHT9U/crctl/compare/v0.5.0...v0.6.0) (2026-06-11)
+
+### Features
+
+* add crctl detach command, show Ctrl+B D hint on attach ([7ddfcbc](https://github.com/JIEHT9U/crctl/commit/7ddfcbc83b8b90a40686748eaacfd83096c1f614))
+
 ## [0.5.0](https://github.com/JIEHT9U/crctl/compare/v0.4.1...v0.5.0) (2026-06-11)
 
 ### Features
