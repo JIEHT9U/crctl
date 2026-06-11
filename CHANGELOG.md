@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1](https://github.com/JIEHT9U/crctl/compare/v0.3.0...v0.3.1) (2026-06-11)
+
+### Bug Fixes
+
+* use define instead of replace in tsup for version injection ([d6b4783](https://github.com/JIEHT9U/crctl/commit/d6b478335d70d7eca9454327f85e23024212d6eb))
+
 ## [0.3.0](https://github.com/JIEHT9U/crctl/compare/v0.2.3...v0.3.0) (2026-06-11)
 
 ### Features
