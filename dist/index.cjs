@@ -3049,6 +3049,7 @@ var import_node_crypto = require("crypto");
 var import_node_fs = require("fs");
 var import_node_path = require("path");
 var import_node_os = require("os");
+var VERSION = __VERSION__;
 var SESSION_PREFIX = "claude-rc";
 var CONFIG_DIR = process.platform === "darwin" ? (0, import_node_path.join)((0, import_node_os.homedir)(), "Library", "Application Support", "crctl") : (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "crctl");
 var SESSIONS_FILE = (0, import_node_path.join)(CONFIG_DIR, "sessions.json");
@@ -3423,6 +3424,8 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'link' -d 'Print browser link
 complete -c crctl -f -n '__fish_use_subcommand' -a 'doctor' -d 'Check dependencies'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'setup' -d 'Install shell completions'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'generate' -d 'Generate completion script'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'update' -d 'Check for updates and upgrade'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove crctl and clean up'
 complete -c crctl -f -n '__fish_seen_short_option "-V"' -s V -l version -d 'Version'
 complete -c crctl -f -n '__fish_seen_short_option "-h"' -s h -l help -d 'Help'
 complete -c crctl -f -n '__fish_complete_subcommand crctl stop' -s g -l global -d 'Stop ALL sessions'
@@ -3433,7 +3436,7 @@ var BASH_COMPLETION = `
 # crctl \u2014 bash completion
 _crctl() {
     local cur prev cmds
-    cmds="start stop status attach link doctor setup generate"
+    cmds="start stop status attach link doctor setup generate update uninstall"
     COMPREPLY=()
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
@@ -3470,6 +3473,8 @@ _crctl() {
         'doctor:Check dependencies'
         'setup:Install shell completions'
         'generate:Generate completion script'
+        'update:Check for updates and upgrade'
+        'uninstall:Remove crctl and clean up'
     )
 
     _arguments -C         '(- *){-V,--version}'         '(- *){-h,--help}'         '1: :->cmds'         '*::arg:->args' && return 0
@@ -3572,8 +3577,88 @@ function cmdSetup() {
     }
   }
 }
+function cmdUpdate() {
+  console.log("\u{1F504} Checking for updates...");
+  try {
+    const output = (0, import_node_child_process.execSync)("curl -s https://api.github.com/repos/JIEHT9U/crctl/releases/latest", {
+      encoding: "utf8"
+    });
+    const latest = JSON.parse(output);
+    const latestVersion = latest.tag_name.replace("v", "");
+    if (latestVersion === VERSION) {
+      console.log(`\u2705 crctl is already up to date (${VERSION}).`);
+      return;
+    }
+    console.log(`\u{1F680} New version available: ${latestVersion} (you have ${VERSION})`);
+    console.log("   Updating...");
+    const result = (0, import_node_child_process.spawnSync)("sh", ["-c", "curl -fsSL https://raw.githubusercontent.com/JIEHT9U/crctl/main/install.sh | sh"], {
+      stdio: "inherit"
+    });
+    if (result.status === 0) {
+      console.log(`\u2705 Updated to ${latestVersion}!`);
+    } else {
+      console.log("\u274C Update failed.");
+      process.exit(1);
+    }
+  } catch (err) {
+    console.log("\u274C Failed to check for updates.");
+    console.log(`   Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+function cmdUninstall() {
+  const binaryPath = process.argv[1];
+  const shell = process.env.SHELL || "";
+  let shellName = "unknown";
+  if (shell.includes("fish")) shellName = "fish";
+  else if (shell.includes("zsh")) shellName = "zsh";
+  else shellName = "bash";
+  console.log("\u{1F5D1}\uFE0F  Uninstalling crctl...");
+  try {
+    (0, import_node_fs.unlinkSync)(binaryPath);
+    console.log(`\u2705 Binary removed: ${binaryPath}`);
+  } catch {
+    console.log(`\u26A0\uFE0F  Could not remove binary: ${binaryPath}`);
+  }
+  const configs = {
+    fish: (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "fish", "config.fish"),
+    bash: (0, import_node_path.join)((0, import_node_os.homedir)(), ".bashrc"),
+    zsh: (0, import_node_path.join)((0, import_node_os.homedir)(), ".zshrc")
+  };
+  const configPath = configs[shellName];
+  if (configPath && (0, import_node_fs.existsSync)(configPath)) {
+    try {
+      let content = (0, import_node_fs.readFileSync)(configPath, "utf8");
+      const originalLines = content.split("\n");
+      const cleanedLines = originalLines.filter(
+        (line) => !line.includes("crctl") && !line.includes("crctl")
+      );
+      if (cleanedLines.length < originalLines.length) {
+        (0, import_node_fs.writeFileSync)(configPath, cleanedLines.join("\n"));
+        console.log(`\u2705 Cleaned crctl entries from ${configPath}`);
+      }
+    } catch {
+      console.log(`\u26A0\uFE0F  Could not clean ${configPath}`);
+    }
+  }
+  const completionPaths = [
+    (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "fish", "completions", "crctl.fish"),
+    (0, import_node_path.join)((0, import_node_os.homedir)(), ".bash_completion_crctl")
+  ];
+  for (const path of completionPaths) {
+    if ((0, import_node_fs.existsSync)(path)) {
+      try {
+        (0, import_node_fs.unlinkSync)(path);
+        console.log(`\u2705 Removed completion: ${path}`);
+      } catch {
+      }
+    }
+  }
+  console.log("");
+  console.log("\u{1F44B} crctl has been removed. You may need to restart your terminal.");
+}
 var program2 = new Command();
-program2.name("crctl").description("Claude Remote Control \u2014 manage Claude Code sessions via tmux").version("0.2.0");
+program2.name("crctl").description("Claude Remote Control \u2014 manage Claude Code sessions via tmux").version(VERSION);
 program2.command("start").description("Start Claude Code in remote-control mode (current directory)").action(cmdStart);
 program2.command("stop").description("Stop Claude Code session (current directory)").option("-g, --global", "Stop ALL sessions in all directories").action(cmdStop);
 program2.command("status").description("Show Claude Code session status").option("-g, --global", "Show all sessions in all directories").action((opts) => cmdStatus({ global: !!opts.global }));
@@ -3584,4 +3669,6 @@ program2.command("generate").description("Generate shell completion script (bash
 program2.command("setup").description(
   "Auto-detect your shell and install completions"
 ).action(cmdSetup);
+program2.command("update").description("Check for updates and upgrade to the latest version").action(cmdUpdate);
+program2.command("uninstall").description("Remove crctl and clean up shell configurations").action(cmdUninstall);
 program2.parse();

@@ -6,9 +6,12 @@ import {
   writeFileSync,
   existsSync,
   mkdirSync,
+  unlinkSync,
 } from "node:fs";
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
+
+const VERSION = __VERSION__; // Injected by tsup
 
 // ─── Constants ──────────────────────────────────────────────
 
@@ -482,6 +485,8 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'link' -d 'Print browser link
 complete -c crctl -f -n '__fish_use_subcommand' -a 'doctor' -d 'Check dependencies'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'setup' -d 'Install shell completions'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'generate' -d 'Generate completion script'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'update' -d 'Check for updates and upgrade'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove crctl and clean up'
 complete -c crctl -f -n '__fish_seen_short_option "-V"' -s V -l version -d 'Version'
 complete -c crctl -f -n '__fish_seen_short_option "-h"' -s h -l help -d 'Help'
 complete -c crctl -f -n '__fish_complete_subcommand crctl stop' -s g -l global -d 'Stop ALL sessions'
@@ -493,7 +498,7 @@ const BASH_COMPLETION = `
 # crctl — bash completion
 _crctl() {
     local cur prev cmds
-    cmds="start stop status attach link doctor setup generate"
+    cmds="start stop status attach link doctor setup generate update uninstall"
     COMPREPLY=()
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
@@ -531,6 +536,8 @@ _crctl() {
         'doctor:Check dependencies'
         'setup:Install shell completions'
         'generate:Generate completion script'
+        'update:Check for updates and upgrade'
+        'uninstall:Remove crctl and clean up'
     )
 
     _arguments -C \
@@ -648,6 +655,105 @@ function cmdSetup() {
   }
 }
 
+// ─── Update & Uninstall ─────────────────────────────────────
+
+function cmdUpdate() {
+  console.log("🔄 Checking for updates...");
+  try {
+    const output = execSync("curl -s https://api.github.com/repos/JIEHT9U/crctl/releases/latest", {
+      encoding: "utf8",
+    });
+    const latest = JSON.parse(output);
+    const latestVersion = latest.tag_name.replace("v", "");
+
+    if (latestVersion === VERSION) {
+      console.log(`✅ crctl is already up to date (${VERSION}).`);
+      return;
+    }
+
+    console.log(`🚀 New version available: ${latestVersion} (you have ${VERSION})`);
+    console.log("   Updating...");
+
+    const result = spawnSync("sh", ["-c", "curl -fsSL https://raw.githubusercontent.com/JIEHT9U/crctl/main/install.sh | sh"], {
+      stdio: "inherit",
+    });
+
+    if (result.status === 0) {
+      console.log(`✅ Updated to ${latestVersion}!`);
+    } else {
+      console.log("❌ Update failed.");
+      process.exit(1);
+    }
+  } catch (err: any) {
+    console.log("❌ Failed to check for updates.");
+    console.log(`   Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+function cmdUninstall() {
+  const binaryPath = process.argv[1];
+  const shell = process.env.SHELL || "";
+  let shellName = "unknown";
+
+  if (shell.includes("fish")) shellName = "fish";
+  else if (shell.includes("zsh")) shellName = "zsh";
+  else shellName = "bash";
+
+  console.log("🗑️  Uninstalling crctl...");
+
+  // 1. Remove binary
+  try {
+    unlinkSync(binaryPath);
+    console.log(`✅ Binary removed: ${binaryPath}`);
+  } catch {
+    console.log(`⚠️  Could not remove binary: ${binaryPath}`);
+  }
+
+  // 2. Remove PATH lines from shell config
+  const configs: Record<string, string> = {
+    fish: join(homedir(), ".config", "fish", "config.fish"),
+    bash: join(homedir(), ".bashrc"),
+    zsh: join(homedir(), ".zshrc"),
+  };
+
+  const configPath = configs[shellName];
+  if (configPath && existsSync(configPath)) {
+    try {
+      let content = readFileSync(configPath, "utf8");
+      const originalLines = content.split("\n");
+      const cleanedLines = originalLines.filter(
+        (line) => !line.includes("crctl") && !line.includes("crctl")
+      );
+
+      if (cleanedLines.length < originalLines.length) {
+        writeFileSync(configPath, cleanedLines.join("\n"));
+        console.log(`✅ Cleaned crctl entries from ${configPath}`);
+      }
+    } catch {
+      console.log(`⚠️  Could not clean ${configPath}`);
+    }
+  }
+
+  // 3. Remove completions
+  const completionPaths = [
+    join(homedir(), ".config", "fish", "completions", "crctl.fish"),
+    join(homedir(), ".bash_completion_crctl"),
+  ];
+
+  for (const path of completionPaths) {
+    if (existsSync(path)) {
+      try {
+        unlinkSync(path);
+        console.log(`✅ Removed completion: ${path}`);
+      } catch {}
+    }
+  }
+
+  console.log("");
+  console.log("👋 crctl has been removed. You may need to restart your terminal.");
+}
+
 // ─── CLI ────────────────────────────────────────────────────
 
 const program = new Command();
@@ -655,7 +761,7 @@ const program = new Command();
 program
   .name("crctl")
   .description("Claude Remote Control — manage Claude Code sessions via tmux")
-  .version("0.2.0");
+  .version(VERSION);
 
 program
   .command("start")
@@ -701,5 +807,15 @@ program
     "Auto-detect your shell and install completions"
   )
   .action(cmdSetup);
+
+program
+  .command("update")
+  .description("Check for updates and upgrade to the latest version")
+  .action(cmdUpdate);
+
+program
+  .command("uninstall")
+  .description("Remove crctl and clean up shell configurations")
+  .action(cmdUninstall);
 
 program.parse();
