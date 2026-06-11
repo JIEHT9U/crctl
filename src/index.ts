@@ -27,6 +27,11 @@ program
 program
   .command("start")
   .description("Start Claude Code in remote-control mode (current directory)")
+  .option(
+    "--spawn <mode>",
+    "Spawn mode: same-dir (default) or worktree (isolated git worktree per session)",
+    "same-dir"
+  )
   .action(cmdStart);
 
 program

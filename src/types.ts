@@ -10,6 +10,8 @@ export interface SessionEntry {
   pids: number[];
   /** Browser link captured from the claude output, if found. */
   link?: string | null;
+  /** Spawn mode passed to `claude remote-control --spawn`. */
+  spawn?: "same-dir" | "worktree";
 }
 
 /** Shape of the on-disk session registry (`sessions.json`). */

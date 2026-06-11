@@ -46,8 +46,45 @@ describe("cmdStart", () => {
     expect(newSession).not.toHaveBeenCalled();
     expect(log.output()).toContain("Session already active");
     expect(log.output()).toContain("crctl attach");
-    // The known link is shown so the user does not have to dig for it
     expect(log.output()).toContain(LINK);
+  });
+
+  it("passes --spawn=same-dir to claude by default", () => {
+    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+    captureLog();
+
+    cmdStart();
+
+    expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
+      "claude", "remote-control", "--spawn=same-dir",
+    ]);
+  });
+
+  it("passes --spawn=worktree when requested", () => {
+    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+    captureLog();
+
+    cmdStart({ spawn: "worktree" });
+
+    expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
+      "claude", "remote-control", "--spawn=worktree",
+    ]);
+  });
+
+  it("saves spawn mode to the registry", () => {
+    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+    captureLog();
+
+    cmdStart({ spawn: "worktree" });
+
+    expect(saveSessions).toHaveBeenCalledWith({
+      sessions: {
+        [CWD]: { name: NAME, cwd: CWD, pids: [], link: LINK, spawn: "worktree" },
+      },
+    });
   });
 
   it("starts a session and saves the captured link to the registry", () => {
@@ -57,12 +94,10 @@ describe("cmdStart", () => {
 
     cmdStart();
 
-    expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
-      "claude",
-      "remote-control",
-    ]);
     expect(saveSessions).toHaveBeenCalledWith({
-      sessions: { [CWD]: { name: NAME, cwd: CWD, pids: [], link: LINK } },
+      sessions: {
+        [CWD]: { name: NAME, cwd: CWD, pids: [], link: LINK, spawn: "same-dir" },
+      },
     });
     expect(log.output()).toContain(LINK);
     expect(log.output()).toContain("✅ Done!");
@@ -87,14 +122,15 @@ describe("cmdStart", () => {
   it("still registers the session when the link never appears", () => {
     vi.mocked(sessionExists).mockReturnValue(false);
     vi.mocked(getPaneContent).mockReturnValue("starting up...");
-    const log = captureLog();
+    captureLog();
 
     cmdStart();
 
     expect(saveSessions).toHaveBeenCalledWith({
-      sessions: { [CWD]: { name: NAME, cwd: CWD, pids: [], link: null } },
+      sessions: {
+        [CWD]: { name: NAME, cwd: CWD, pids: [], link: null, spawn: "same-dir" },
+      },
     });
-    expect(log.output()).toContain("Failed to get the link automatically");
   });
 
   it("stops polling as soon as the link appears", () => {

@@ -11,9 +11,12 @@ export function cmdAttach(): void {
     process.exit(1);
   }
 
+  const isMac = process.platform === "darwin";
+  const easyKey = isMac ? "⌥D  (Option+D)" : "Alt+D";
   console.log(`┌─────────────────────────────────────────────────────┐`);
   console.log(`│  To detach (keep session running):                  │`);
-  console.log(`│    Press  Ctrl-b  then  d                           │`);
+  console.log(`│    ${easyKey.padEnd(49)}│`);
+  console.log(`│    or  Ctrl-b  then  d  (tmux default)              │`);
   console.log(`│                                                     │`);
   console.log(`│  To stop completely:  crctl stop                    │`);
   console.log(`└─────────────────────────────────────────────────────┘`);

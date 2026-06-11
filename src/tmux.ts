@@ -32,14 +32,18 @@ export function newSession(
     "new-session", "-d", "-s", name, "-c", cwd, ...command,
   ]);
   if (result.code === 0) {
-    // Show a persistent status bar so the detach hint is always visible.
-    run("tmux", [
-      "set-option", "-t", name,
-      "status-right",
-      "  Detach (keep running): prefix + d  |  prefix = Ctrl-b  ",
-    ]);
+    const isMac = process.platform === "darwin";
+    const detachHint = isMac
+      ? "  Detach: ⌥D (Option+D)  or  Ctrl-b d  "
+      : "  Detach: Alt+D  or  Ctrl-b d  ";
+
+    // Persistent status bar — visible while attached so the hint is never lost.
     run("tmux", ["set-option", "-t", name, "status", "on"]);
     run("tmux", ["set-option", "-t", name, "status-style", "bg=colour235,fg=colour250"]);
+    run("tmux", ["set-option", "-t", name, "status-right", detachHint]);
+
+    // Bind Meta-d (Option+D on Mac, Alt+D on Linux) as a convenient detach key.
+    run("tmux", ["bind-key", "-T", "root", "M-d", "detach-client"]);
   }
   return result;
 }

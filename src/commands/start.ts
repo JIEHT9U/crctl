@@ -3,7 +3,9 @@ import { loadSessions, saveSessions } from "../registry";
 import { getPaneContent, newSession, sessionExists } from "../tmux";
 import { extractLink, sessionName, sleep } from "../utils";
 
-export function cmdStart(): void {
+export type SpawnMode = "same-dir" | "worktree";
+
+export function cmdStart(options: { spawn?: SpawnMode } = {}): void {
   const cwd = process.cwd();
   const name = sessionName(cwd);
 
@@ -17,10 +19,14 @@ export function cmdStart(): void {
     return;
   }
 
+  const spawnMode: SpawnMode = options.spawn ?? "same-dir";
+  const claudeArgs = ["claude", "remote-control", `--spawn=${spawnMode}`];
+
   console.log(`🚀 Starting Claude Code (remote-control)...`);
   console.log(`   Directory: ${cwd}`);
+  console.log(`   Spawn mode: ${spawnMode}`);
 
-  const result = newSession(name, cwd, ["claude", "remote-control"]);
+  const result = newSession(name, cwd, claudeArgs);
   if (result.code !== 0) {
     console.log(`❌ Failed to start tmux session.`);
     if (result.stderr) {
@@ -39,7 +45,7 @@ export function cmdStart(): void {
   }
 
   const data = loadSessions();
-  data.sessions[cwd] = { name, cwd, pids: [], link };
+  data.sessions[cwd] = { name, cwd, pids: [], link, spawn: spawnMode };
   saveSessions(data);
 
   console.log("");

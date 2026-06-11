@@ -3104,15 +3104,12 @@ function newSession(name, cwd, command) {
     ...command
   ]);
   if (result.code === 0) {
-    run("tmux", [
-      "set-option",
-      "-t",
-      name,
-      "status-right",
-      "  Detach (keep running): prefix + d  |  prefix = Ctrl-b  "
-    ]);
+    const isMac = process.platform === "darwin";
+    const detachHint = isMac ? "  Detach: \u2325D (Option+D)  or  Ctrl-b d  " : "  Detach: Alt+D  or  Ctrl-b d  ";
     run("tmux", ["set-option", "-t", name, "status", "on"]);
     run("tmux", ["set-option", "-t", name, "status-style", "bg=colour235,fg=colour250"]);
+    run("tmux", ["set-option", "-t", name, "status-right", detachHint]);
+    run("tmux", ["bind-key", "-T", "root", "M-d", "detach-client"]);
   }
   return result;
 }
@@ -3183,7 +3180,7 @@ function detectShell(shellEnv) {
 }
 
 // src/commands/start.ts
-function cmdStart() {
+function cmdStart(options = {}) {
   const cwd = process.cwd();
   const name = sessionName(cwd);
   if (sessionExists(name)) {
@@ -3195,9 +3192,12 @@ function cmdStart() {
     console.log(`   Connect via: crctl attach`);
     return;
   }
+  const spawnMode = options.spawn ?? "same-dir";
+  const claudeArgs = ["claude", "remote-control", `--spawn=${spawnMode}`];
   console.log(`\u{1F680} Starting Claude Code (remote-control)...`);
   console.log(`   Directory: ${cwd}`);
-  const result = newSession(name, cwd, ["claude", "remote-control"]);
+  console.log(`   Spawn mode: ${spawnMode}`);
+  const result = newSession(name, cwd, claudeArgs);
   if (result.code !== 0) {
     console.log(`\u274C Failed to start tmux session.`);
     if (result.stderr) {
@@ -3213,7 +3213,7 @@ function cmdStart() {
     if (link) break;
   }
   const data = loadSessions();
-  data.sessions[cwd] = { name, cwd, pids: [], link };
+  data.sessions[cwd] = { name, cwd, pids: [], link, spawn: spawnMode };
   saveSessions(data);
   console.log("");
   if (link) {
@@ -3387,9 +3387,12 @@ function cmdAttach() {
     console.log("   Run: crctl start");
     process.exit(1);
   }
+  const isMac = process.platform === "darwin";
+  const easyKey = isMac ? "\u2325D  (Option+D)" : "Alt+D";
   console.log(`\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510`);
   console.log(`\u2502  To detach (keep session running):                  \u2502`);
-  console.log(`\u2502    Press  Ctrl-b  then  d                           \u2502`);
+  console.log(`\u2502    ${easyKey.padEnd(49)}\u2502`);
+  console.log(`\u2502    or  Ctrl-b  then  d  (tmux default)              \u2502`);
   console.log(`\u2502                                                     \u2502`);
   console.log(`\u2502  To stop completely:  crctl stop                    \u2502`);
   console.log(`\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518`);
@@ -3804,7 +3807,11 @@ function cmdUninstall() {
 var VERSION = typeof __VERSION__ !== "undefined" ? __VERSION__ : "dev";
 var program2 = new Command();
 program2.name("crctl").description("Claude Remote Control \u2014 manage Claude Code sessions via tmux").version(VERSION);
-program2.command("start").description("Start Claude Code in remote-control mode (current directory)").action(cmdStart);
+program2.command("start").description("Start Claude Code in remote-control mode (current directory)").option(
+  "--spawn <mode>",
+  "Spawn mode: same-dir (default) or worktree (isolated git worktree per session)",
+  "same-dir"
+).action(cmdStart);
 program2.command("stop").description("Stop Claude Code session (current directory)").option("-g, --global", "Stop ALL sessions in all directories").action(cmdStop);
 program2.command("status").description("Show Claude Code session status").option("-g, --global", "Show all sessions in all directories").action(cmdStatus);
 program2.command("attach").description("Attach to the current directory's tmux session").action(cmdAttach);
