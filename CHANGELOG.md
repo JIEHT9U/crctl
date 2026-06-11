@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0](https://github.com/JIEHT9U/crctl/compare/v0.4.1...v0.5.0) (2026-06-11)
+
+### Features
+
+* refactor into modules, add full test suite, fix attach/stop/link bugs ([92c8f10](https://github.com/JIEHT9U/crctl/commit/92c8f1045eacc7714921cc531ddf95f1d8ad30ba))
+
 ## [0.4.1](https://github.com/JIEHT9U/crctl/compare/v0.4.0...v0.4.1) (2026-06-11)
 
 ### Bug Fixes
