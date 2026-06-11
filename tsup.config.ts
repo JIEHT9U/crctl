@@ -6,6 +6,7 @@ export default defineConfig({
   target: "node20",
   dts: false,
   clean: true,
+  noExternal: ["commander"], // Bundle commander to make dist/index.js self-contained
   banner: {
     js: "#!/usr/bin/env node",
   },
