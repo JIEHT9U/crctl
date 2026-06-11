@@ -3104,6 +3104,10 @@ function attachSession(name) {
   const result = (0, import_node_child_process.spawnSync)("tmux", args, { stdio: "inherit" });
   return result.status;
 }
+function detachSession(name) {
+  const result = run("tmux", ["detach-client", "-s", name]);
+  return result.code;
+}
 function getPaneContent(name) {
   const result = run("tmux", [
     "capture-pane",
@@ -3363,10 +3367,25 @@ function cmdAttach() {
     console.log("   Run: crctl start");
     process.exit(1);
   }
+  console.log(`\u{1F4A1} Detach without stopping: Ctrl+B D  (then resume with: crctl attach)`);
   const code = attachSession(name);
   if (code !== 0) {
     process.exit(code ?? 1);
   }
+}
+function cmdDetach() {
+  const cwd = process.cwd();
+  const name = sessionName(cwd);
+  if (!sessionExists(name)) {
+    console.log(`\u274C No active session for ${cwd}`);
+    process.exit(1);
+  }
+  const code = detachSession(name);
+  if (code !== 0) {
+    console.log(`\u26A0\uFE0F  Could not detach (are you attached to this session?)`);
+    process.exit(code ?? 1);
+  }
+  console.log(`\u2705 Detached. Session still running. Reconnect with: crctl attach`);
 }
 
 // src/commands/link.ts
@@ -3489,6 +3508,7 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'start' -d 'Start Claude Code
 complete -c crctl -f -n '__fish_use_subcommand' -a 'stop' -d 'Stop Claude Code session'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'status' -d 'Show Claude Code session status'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'attach' -d 'Attach to tmux session'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'detach' -d 'Detach from session without stopping it'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'link' -d 'Print browser link'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'doctor' -d 'Check dependencies'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'setup' -d 'Install shell completions'
@@ -3504,7 +3524,7 @@ var BASH_COMPLETION = `
 # crctl \u2014 bash completion
 _crctl() {
     local cur prev cmds
-    cmds="start stop status attach link doctor setup generate update uninstall"
+    cmds="start stop status attach detach link doctor setup generate update uninstall"
     COMPREPLY=()
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
@@ -3537,6 +3557,7 @@ _crctl() {
         'stop:Stop Claude Code session'
         'status:Show Claude Code session status'
         'attach:Attach to tmux session'
+        'detach:Detach from session without stopping it'
         'link:Print browser link'
         'doctor:Check dependencies'
         'setup:Install shell completions'
@@ -3762,6 +3783,7 @@ program2.command("start").description("Start Claude Code in remote-control mode 
 program2.command("stop").description("Stop Claude Code session (current directory)").option("-g, --global", "Stop ALL sessions in all directories").action(cmdStop);
 program2.command("status").description("Show Claude Code session status").option("-g, --global", "Show all sessions in all directories").action(cmdStatus);
 program2.command("attach").description("Attach to the current directory's tmux session").action(cmdAttach);
+program2.command("detach").description("Detach from session without stopping it (alias: Ctrl+B D inside tmux)").action(cmdDetach);
 program2.command("link").description("Print the browser link for the current directory's session").action(cmdLink);
 program2.command("doctor").description("Check all dependencies and show install instructions").action(cmdDoctor);
 program2.command("generate").description("Generate shell completion script (bash|fish|zsh)").argument("<shell>", "Shell type: bash, fish, or zsh").action(cmdGenerate);

@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import {
   cmdAttach,
+  cmdDetach,
   cmdDoctor,
   cmdGenerate,
   cmdLink,
@@ -44,6 +45,11 @@ program
   .command("attach")
   .description("Attach to the current directory's tmux session")
   .action(cmdAttach);
+
+program
+  .command("detach")
+  .description("Detach from session without stopping it (alias: Ctrl+B D inside tmux)")
+  .action(cmdDetach);
 
 program
   .command("link")

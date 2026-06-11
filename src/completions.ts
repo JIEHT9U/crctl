@@ -22,6 +22,7 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'start' -d 'Start Claude Code
 complete -c crctl -f -n '__fish_use_subcommand' -a 'stop' -d 'Stop Claude Code session'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'status' -d 'Show Claude Code session status'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'attach' -d 'Attach to tmux session'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'detach' -d 'Detach from session without stopping it'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'link' -d 'Print browser link'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'doctor' -d 'Check dependencies'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'setup' -d 'Install shell completions'
@@ -38,7 +39,7 @@ export const BASH_COMPLETION = `
 # crctl — bash completion
 _crctl() {
     local cur prev cmds
-    cmds="start stop status attach link doctor setup generate update uninstall"
+    cmds="start stop status attach detach link doctor setup generate update uninstall"
     COMPREPLY=()
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
@@ -72,6 +73,7 @@ _crctl() {
         'stop:Stop Claude Code session'
         'status:Show Claude Code session status'
         'attach:Attach to tmux session'
+        'detach:Detach from session without stopping it'
         'link:Print browser link'
         'doctor:Check dependencies'
         'setup:Install shell completions'

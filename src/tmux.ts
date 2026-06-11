@@ -52,6 +52,15 @@ export function attachSession(name: string): number | null {
   return result.status;
 }
 
+/**
+ * Detach all clients from a session without stopping it.
+ * Useful when the user wants to background the session programmatically.
+ */
+export function detachSession(name: string): number | null {
+  const result = run("tmux", ["detach-client", "-s", name]);
+  return result.code;
+}
+
 /** Capture the last 50 lines of the session's pane. */
 export function getPaneContent(name: string): string {
   const result = run("tmux", [

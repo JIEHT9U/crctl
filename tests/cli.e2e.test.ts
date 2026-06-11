@@ -39,6 +39,7 @@ describe("crctl binary", () => {
       "stop",
       "status",
       "attach",
+      "detach",
       "link",
       "doctor",
       "generate",
