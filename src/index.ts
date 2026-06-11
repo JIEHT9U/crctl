@@ -138,13 +138,13 @@ function cmdStart() {
   const name = sessionName(cwd);
 
   if (sessionExists(name)) {
-    console.log(`⚠️  Сессия уже активна для ${cwd}`);
-    console.log(`   Подключитесь: crctl attach`);
+    console.log(`⚠️  Session already active for ${cwd}`);
+    console.log(`   Connect via: crctl attach`);
     process.exit(0);
   }
 
-  console.log(`🚀 Запуск Claude Code (remote-control)...`);
-  console.log(`   Директория: ${cwd}`);
+  console.log(`🚀 Starting Claude Code (remote-control)...`);
+  console.log(`   Directory: ${cwd}`);
 
   run("tmux", [
     "new-session",
@@ -157,7 +157,7 @@ function cmdStart() {
     "remote-control",
   ]);
 
-  // Ждём появления ссылки (до 15 секунд)
+  // Wait for the link to appear (up to 15 seconds)
   let link: string | null = null;
   for (let i = 0; i < 30; i++) {
     spawnSync("sleep", ["0.5"]);
@@ -166,23 +166,23 @@ function cmdStart() {
     if (link) break;
   }
 
-  // Сохраняем в регистр
+  // Save to registry
   const data = loadSessions();
   data.sessions[cwd] = { name, cwd, pids: [], link };
   saveSessions(data);
 
   console.log("");
   if (link) {
-    console.log("✅ Готово!");
+    console.log("✅ Done!");
     console.log("");
-    console.log(`🔗 Ссылка для браузера:`);
+    console.log(`🔗 Browser link:`);
     console.log(`   ${link}`);
     console.log("");
-    console.log("📱 Нажми Пробел внутри сессии для QR-кода:");
+    console.log("📱 Press Space inside the session for a QR code:");
     console.log(`   crctl attach`);
   } else {
-    console.log("⚠️  Не удалось получить ссылку автоматически.");
-    console.log("   Подключись к сессии вручную:");
+    console.log("⚠️  Failed to get the link automatically.");
+    console.log("   Connect to the session manually:");
     console.log(`   crctl attach`);
   }
 }
@@ -191,17 +191,17 @@ function cmdStop(options: { global: boolean }) {
   const data = loadSessions();
 
   if (options.global) {
-    // Останавливаем ВСЕ сессии
+    // Stop ALL sessions
     const targets = Object.values(data.sessions).filter((s) =>
       sessionExists(s.name)
     );
 
     if (targets.length === 0) {
-      console.log("ℹ️  Нет активных сессий.");
+      console.log("ℹ️  No active sessions.");
       return;
     }
 
-    console.log(`🛑 Остановка всех сессий (${targets.length})...`);
+    console.log(`🛑 Stopping all sessions (${targets.length})...`);
     for (const s of targets) {
       console.log(`   📂 ${s.cwd}`);
       run("tmux", ["kill-session", "-t", s.name]);
@@ -211,22 +211,22 @@ function cmdStop(options: { global: boolean }) {
     spawnSync("sleep", ["1"]);
     const pids = findClaudeProcesses();
     if (pids.length > 0) {
-      console.log(`   Убиваю зависшие процессы: ${pids.join(" ")}`);
+      console.log(`   Killing orphaned processes: ${pids.join(" ")}`);
       killPids(pids);
     }
 
     saveSessions(data);
-    console.log("✅ Все сессии остановлены.");
+    console.log("✅ All sessions stopped.");
     return;
   }
 
-  // Текущая директория
+  // Current directory
   const cwd = process.cwd();
   const name = sessionName(cwd);
   let stopped = false;
 
   if (sessionExists(name)) {
-    console.log(`🛑 Остановка сессии для ${cwd}...`);
+    console.log(`🛑 Stopping session for ${cwd}...`);
     run("tmux", ["kill-session", "-t", name]);
     stopped = true;
     delete data.sessions[cwd];
@@ -234,21 +234,21 @@ function cmdStop(options: { global: boolean }) {
     spawnSync("sleep", ["1"]);
   }
 
-  // Добиваем зависшие процессы
+  // Clean up orphaned processes
   const pids = findClaudeProcesses();
   if (pids.length > 0) {
-    console.log(`   Убиваю зависшие процессы: ${pids.join(" ")}`);
+    console.log(`   Killing orphaned processes: ${pids.join(" ")}`);
     killPids(pids);
   }
 
   saveSessions(data);
 
   if (stopped) {
-    console.log("✅ Сессия и все процессы убиты.");
+    console.log("✅ Session and all processes terminated.");
   } else if (pids.length > 0) {
-    console.log("✅ Процессы убиты.");
+    console.log("✅ Processes terminated.");
   } else {
-    console.log("ℹ️  Сессия не найдена. Всё чисто.");
+    console.log("ℹ️  Session not found. All clean.");
   }
 }
 
@@ -260,7 +260,7 @@ function cmdStatus(options: { global: boolean }) {
     );
 
     if (sessions.length === 0) {
-      // Проверяем через tmux на случай, если регистр пустой
+      // Check via tmux in case the registry is empty
       const result = run("tmux", [
         "list-sessions",
         "-F",
@@ -271,16 +271,16 @@ function cmdStatus(options: { global: boolean }) {
         .filter(Boolean)
         .map((line) => {
           const parts = line.split(/\s+(\/.*)$/, 2);
-          return { name: parts[0], path: parts[1] || "неизвестно" };
+          return { name: parts[0], path: parts[1] || "unknown" };
         })
         .filter((s) => s.name.startsWith(SESSION_PREFIX + "-"));
 
       if (tmuxSessions.length === 0) {
-        console.log("Нет активных сессий crctl");
+        console.log("No active crctl sessions");
         return;
       }
 
-      console.log("🌍 Активные сессии crctl:");
+      console.log("🌍 Active crctl sessions:");
       console.log("");
 
       for (const s of tmuxSessions) {
@@ -294,14 +294,14 @@ function cmdStatus(options: { global: boolean }) {
         const pid = pidResult.stdout || "—";
 
         console.log(`  📂 ${s.path}`);
-        console.log(`     Сессия: ${s.name}`);
+        console.log(`     Session: ${s.name}`);
         console.log(`     PID: ${pid}`);
         console.log("");
       }
       return;
     }
 
-    console.log("🌍 Активные сессии crctl:");
+    console.log("🌍 Active crctl sessions:");
     console.log("");
 
     for (const s of sessions) {
@@ -315,7 +315,7 @@ function cmdStatus(options: { global: boolean }) {
       const pid = pidResult.stdout || "—";
 
       console.log(`  📂 ${s.cwd}`);
-      console.log(`     Сессия: ${s.name}`);
+      console.log(`     Session: ${s.name}`);
       console.log(`     PID: ${pid}`);
       if (s.link) {
         console.log(`     🔗 ${s.link}`);
@@ -325,7 +325,7 @@ function cmdStatus(options: { global: boolean }) {
     return;
   }
 
-  // Обычный режим — текущая директория
+  // Normal mode — current directory
   const cwd = process.cwd();
   const name = sessionName(cwd);
 
@@ -335,8 +335,8 @@ function cmdStatus(options: { global: boolean }) {
   const entry = data.sessions[cwd];
 
   if (active) {
-    console.log(`✅ Сессия активна для ${cwd}`);
-    console.log(`   Сессия: ${name}`);
+    console.log(`✅ Session active for ${cwd}`);
+    console.log(`   Session: ${name}`);
     if (entry?.link) {
       console.log(`   🔗 ${entry.link}`);
     }
@@ -344,10 +344,10 @@ function cmdStatus(options: { global: boolean }) {
       console.log(`   PID: ${pids.join(" ")}`);
     }
   } else {
-    console.log(`❌ Сессия не запущена для ${cwd}`);
+    console.log(`❌ Session not running for ${cwd}`);
     if (pids.length > 0) {
-      console.log(`⚠️  Но есть зависшие процессы: ${pids.join(" ")}`);
-      console.log("   Запусти: crctl stop");
+      console.log(`⚠️  But there are orphaned processes: ${pids.join(" ")}`);
+      console.log("   Run: crctl stop");
     }
   }
 }
@@ -357,8 +357,8 @@ function cmdAttach() {
   const name = sessionName(cwd);
 
   if (!sessionExists(name)) {
-    console.log(`❌ Нет активной сессии для ${cwd}`);
-    console.log("   Запусти: crctl start");
+    console.log(`❌ No active session for ${cwd}`);
+    console.log("   Run: crctl start");
     process.exit(1);
   }
 
@@ -369,7 +369,7 @@ function cmdLink() {
   const cwd = process.cwd();
   const name = sessionName(cwd);
 
-  // Сначала ищем в регистре
+  // First look in the registry
   const data = loadSessions();
   const entry = data.sessions[cwd];
   if (entry?.link) {
@@ -377,7 +377,7 @@ function cmdLink() {
     return;
   }
 
-  // Если нет в регистре — ищем в tmux
+  // If not in registry — look in tmux
   if (sessionExists(name)) {
     const content = getPaneContent(name);
     const link = extractLink(content);
@@ -389,7 +389,7 @@ function cmdLink() {
     }
   }
 
-  console.log("❌ Ссылка не найдена");
+  console.log("❌ Link not found");
   process.exit(1);
 }
 
@@ -413,7 +413,7 @@ function cmdDoctor() {
           const result = run("tmux", ["-V"]);
           return {
             ok: result.code === 0,
-            info: result.stdout || "не найден",
+            info: result.stdout || "not found",
           };
         },
       },
@@ -423,14 +423,14 @@ function cmdDoctor() {
           const result = run("claude", ["--version"]);
           return {
             ok: result.code === 0,
-            info: result.stdout || result.stderr || "не найден",
+            info: result.stdout || result.stderr || "not found",
           };
         },
       },
       {
         name: "Shell",
         check: () => {
-          const shell = process.env.SHELL || "неизвестно";
+          const shell = process.env.SHELL || "unknown";
           return { ok: true, info: shell };
         },
       },
@@ -443,7 +443,7 @@ function cmdDoctor() {
       },
     ];
 
-  console.log("🩺 Проверка зависимостей crctl:\n");
+  console.log("🩺 Checking crctl dependencies:\n");
 
   let allOk = true;
   for (const c of checks) {
@@ -455,21 +455,21 @@ function cmdDoctor() {
 
   console.log("");
   if (!allOk) {
-    console.log("⚠️  Некоторые зависимости не установлены.");
+    console.log("⚠️  Some dependencies are not installed.");
     console.log("");
     if (process.platform === "darwin") {
-      console.log("🍎 Установка на macOS:");
+      console.log("🍎 Install on macOS:");
       console.log("  brew install node");
       console.log("  brew install tmux");
       console.log("  npm install -g @anthropic-ai/claude-code");
     } else {
-      console.log("🐧 Установка на Linux:");
-      console.log("  # Node.js: nvm install --lts или пакет из репозитория");
+      console.log("🐧 Install on Linux:");
+      console.log("  # Node.js: nvm install --lts or from a repository package");
       console.log("  sudo dnf install tmux");
       console.log("  npm install -g @anthropic-ai/claude-code");
     }
   } else {
-    console.log("✅ Все зависимости готовы!");
+    console.log("✅ All dependencies ready!");
   }
 }
 
@@ -575,8 +575,8 @@ function cmdGenerate(shell: string) {
       console.log(ZSH_COMPLETION.trim());
       break;
     default:
-      console.log(`❌ Неизвестный shell: ${shell}`);
-      console.log("   Поддерживаемые: bash, fish, zsh");
+      console.log(`❌ Unknown shell: ${shell}`);
+      console.log("   Supported: bash, fish, zsh");
       process.exit(1);
   }
 }
@@ -593,7 +593,7 @@ function cmdSetup() {
     shellName = "bash";
   }
 
-  console.log(`🐚 Обнаружен shell: ${shellName} (${shell})`);
+  console.log(`🐚 Detected shell: ${shellName} (${shell})`);
 
   const scripts: Record<string, string> = {
     fish: FISH_COMPLETION.trim(),
@@ -609,14 +609,14 @@ function cmdSetup() {
     try {
       mkdirSync(completionsDir, { recursive: true });
       writeFileSync(targetPath, compScript);
-      console.log(`✅ Автодополнение установлено: ${targetPath}`);
+      console.log(`✅ Auto-completion installed: ${targetPath}`);
       console.log("");
-      console.log("   Перезагрузи терминал или выполни:");
+      console.log("   Restart your terminal or run:");
       console.log(`   fish_update_completions`);
     } catch (err: any) {
-      console.log("❌ Не удалось установить автоматически.");
+      console.log("❌ Failed to install automatically.");
       console.log("");
-      console.log("   Установи вручную:");
+      console.log("   Install manually:");
       console.log(`   mkdir -p ${completionsDir}`);
       console.log(`   crctl generate fish > ${targetPath}`);
     }
@@ -625,14 +625,14 @@ function cmdSetup() {
 
     try {
       writeFileSync(targetPath, compScript);
-      console.log(`✅ Скрипт автодополнения: ${targetPath}`);
+      console.log(`✅ Auto-completion script: ${targetPath}`);
       console.log("");
-      console.log("   Добавь в ~/.bashrc:");
+      console.log("   Add to ~/.bashrc:");
       console.log(`   source ${targetPath}`);
     } catch (err: any) {
-      console.log("❌ Не удалось установить.");
+      console.log("❌ Failed to install.");
       console.log("");
-      console.log("   Установи вручную:");
+      console.log("   Install manually:");
       console.log(`   crctl generate bash > ${targetPath}`);
       console.log(`   echo 'source ${targetPath}' >> ~/.bashrc`);
     }
@@ -643,13 +643,13 @@ function cmdSetup() {
     try {
       mkdirSync(zshDir, { recursive: true });
       writeFileSync(targetPath, compScript);
-      console.log(`✅ Скрипт автодополнения: ${targetPath}`);
+      console.log(`✅ Auto-completion script: ${targetPath}`);
       console.log("");
-      console.log("   Добавь 'crctl' в plugins в ~/.zshrc");
+      console.log("   Add 'crctl' to plugins in ~/.zshrc");
     } catch (err: any) {
-      console.log("❌ Не удалось установить.");
+      console.log("❌ Failed to install.");
       console.log("");
-      console.log("   Установи вручную:");
+      console.log("   Install manually:");
       console.log(`   crctl generate zsh > /usr/local/share/zsh/site-functions/_crctl`);
     }
   }

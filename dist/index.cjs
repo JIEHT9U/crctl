@@ -3137,12 +3137,12 @@ function cmdStart() {
   const cwd = process.cwd();
   const name = sessionName(cwd);
   if (sessionExists(name)) {
-    console.log(`\u26A0\uFE0F  \u0421\u0435\u0441\u0441\u0438\u044F \u0443\u0436\u0435 \u0430\u043A\u0442\u0438\u0432\u043D\u0430 \u0434\u043B\u044F ${cwd}`);
-    console.log(`   \u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u0435\u0441\u044C: crctl attach`);
+    console.log(`\u26A0\uFE0F  Session already active for ${cwd}`);
+    console.log(`   Connect via: crctl attach`);
     process.exit(0);
   }
-  console.log(`\u{1F680} \u0417\u0430\u043F\u0443\u0441\u043A Claude Code (remote-control)...`);
-  console.log(`   \u0414\u0438\u0440\u0435\u043A\u0442\u043E\u0440\u0438\u044F: ${cwd}`);
+  console.log(`\u{1F680} Starting Claude Code (remote-control)...`);
+  console.log(`   Directory: ${cwd}`);
   run("tmux", [
     "new-session",
     "-d",
@@ -3165,16 +3165,16 @@ function cmdStart() {
   saveSessions(data);
   console.log("");
   if (link) {
-    console.log("\u2705 \u0413\u043E\u0442\u043E\u0432\u043E!");
+    console.log("\u2705 Done!");
     console.log("");
-    console.log(`\u{1F517} \u0421\u0441\u044B\u043B\u043A\u0430 \u0434\u043B\u044F \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0430:`);
+    console.log(`\u{1F517} Browser link:`);
     console.log(`   ${link}`);
     console.log("");
-    console.log("\u{1F4F1} \u041D\u0430\u0436\u043C\u0438 \u041F\u0440\u043E\u0431\u0435\u043B \u0432\u043D\u0443\u0442\u0440\u0438 \u0441\u0435\u0441\u0441\u0438\u0438 \u0434\u043B\u044F QR-\u043A\u043E\u0434\u0430:");
+    console.log("\u{1F4F1} Press Space inside the session for a QR code:");
     console.log(`   crctl attach`);
   } else {
-    console.log("\u26A0\uFE0F  \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0441\u0441\u044B\u043B\u043A\u0443 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438.");
-    console.log("   \u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0441\u044C \u043A \u0441\u0435\u0441\u0441\u0438\u0438 \u0432\u0440\u0443\u0447\u043D\u0443\u044E:");
+    console.log("\u26A0\uFE0F  Failed to get the link automatically.");
+    console.log("   Connect to the session manually:");
     console.log(`   crctl attach`);
   }
 }
@@ -3185,10 +3185,10 @@ function cmdStop(options) {
       (s) => sessionExists(s.name)
     );
     if (targets.length === 0) {
-      console.log("\u2139\uFE0F  \u041D\u0435\u0442 \u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0445 \u0441\u0435\u0441\u0441\u0438\u0439.");
+      console.log("\u2139\uFE0F  No active sessions.");
       return;
     }
-    console.log(`\u{1F6D1} \u041E\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0430 \u0432\u0441\u0435\u0445 \u0441\u0435\u0441\u0441\u0438\u0439 (${targets.length})...`);
+    console.log(`\u{1F6D1} Stopping all sessions (${targets.length})...`);
     for (const s of targets) {
       console.log(`   \u{1F4C2} ${s.cwd}`);
       run("tmux", ["kill-session", "-t", s.name]);
@@ -3197,18 +3197,18 @@ function cmdStop(options) {
     (0, import_node_child_process.spawnSync)("sleep", ["1"]);
     const pids2 = findClaudeProcesses();
     if (pids2.length > 0) {
-      console.log(`   \u0423\u0431\u0438\u0432\u0430\u044E \u0437\u0430\u0432\u0438\u0441\u0448\u0438\u0435 \u043F\u0440\u043E\u0446\u0435\u0441\u0441\u044B: ${pids2.join(" ")}`);
+      console.log(`   Killing orphaned processes: ${pids2.join(" ")}`);
       killPids(pids2);
     }
     saveSessions(data);
-    console.log("\u2705 \u0412\u0441\u0435 \u0441\u0435\u0441\u0441\u0438\u0438 \u043E\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u044B.");
+    console.log("\u2705 All sessions stopped.");
     return;
   }
   const cwd = process.cwd();
   const name = sessionName(cwd);
   let stopped = false;
   if (sessionExists(name)) {
-    console.log(`\u{1F6D1} \u041E\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0430 \u0441\u0435\u0441\u0441\u0438\u0438 \u0434\u043B\u044F ${cwd}...`);
+    console.log(`\u{1F6D1} Stopping session for ${cwd}...`);
     run("tmux", ["kill-session", "-t", name]);
     stopped = true;
     delete data.sessions[cwd];
@@ -3216,16 +3216,16 @@ function cmdStop(options) {
   }
   const pids = findClaudeProcesses();
   if (pids.length > 0) {
-    console.log(`   \u0423\u0431\u0438\u0432\u0430\u044E \u0437\u0430\u0432\u0438\u0441\u0448\u0438\u0435 \u043F\u0440\u043E\u0446\u0435\u0441\u0441\u044B: ${pids.join(" ")}`);
+    console.log(`   Killing orphaned processes: ${pids.join(" ")}`);
     killPids(pids);
   }
   saveSessions(data);
   if (stopped) {
-    console.log("\u2705 \u0421\u0435\u0441\u0441\u0438\u044F \u0438 \u0432\u0441\u0435 \u043F\u0440\u043E\u0446\u0435\u0441\u0441\u044B \u0443\u0431\u0438\u0442\u044B.");
+    console.log("\u2705 Session and all processes terminated.");
   } else if (pids.length > 0) {
-    console.log("\u2705 \u041F\u0440\u043E\u0446\u0435\u0441\u0441\u044B \u0443\u0431\u0438\u0442\u044B.");
+    console.log("\u2705 Processes terminated.");
   } else {
-    console.log("\u2139\uFE0F  \u0421\u0435\u0441\u0441\u0438\u044F \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430. \u0412\u0441\u0451 \u0447\u0438\u0441\u0442\u043E.");
+    console.log("\u2139\uFE0F  Session not found. All clean.");
   }
 }
 function cmdStatus(options) {
@@ -3242,13 +3242,13 @@ function cmdStatus(options) {
       ]);
       const tmuxSessions = (result.stdout || "").split("\n").filter(Boolean).map((line) => {
         const parts = line.split(/\s+(\/.*)$/, 2);
-        return { name: parts[0], path: parts[1] || "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E" };
+        return { name: parts[0], path: parts[1] || "unknown" };
       }).filter((s) => s.name.startsWith(SESSION_PREFIX + "-"));
       if (tmuxSessions.length === 0) {
-        console.log("\u041D\u0435\u0442 \u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0445 \u0441\u0435\u0441\u0441\u0438\u0439 crctl");
+        console.log("No active crctl sessions");
         return;
       }
-      console.log("\u{1F30D} \u0410\u043A\u0442\u0438\u0432\u043D\u044B\u0435 \u0441\u0435\u0441\u0441\u0438\u0438 crctl:");
+      console.log("\u{1F30D} Active crctl sessions:");
       console.log("");
       for (const s of tmuxSessions) {
         const pidResult = run("tmux", [
@@ -3260,13 +3260,13 @@ function cmdStatus(options) {
         ]);
         const pid = pidResult.stdout || "\u2014";
         console.log(`  \u{1F4C2} ${s.path}`);
-        console.log(`     \u0421\u0435\u0441\u0441\u0438\u044F: ${s.name}`);
+        console.log(`     Session: ${s.name}`);
         console.log(`     PID: ${pid}`);
         console.log("");
       }
       return;
     }
-    console.log("\u{1F30D} \u0410\u043A\u0442\u0438\u0432\u043D\u044B\u0435 \u0441\u0435\u0441\u0441\u0438\u0438 crctl:");
+    console.log("\u{1F30D} Active crctl sessions:");
     console.log("");
     for (const s of sessions) {
       const pidResult = run("tmux", [
@@ -3278,7 +3278,7 @@ function cmdStatus(options) {
       ]);
       const pid = pidResult.stdout || "\u2014";
       console.log(`  \u{1F4C2} ${s.cwd}`);
-      console.log(`     \u0421\u0435\u0441\u0441\u0438\u044F: ${s.name}`);
+      console.log(`     Session: ${s.name}`);
       console.log(`     PID: ${pid}`);
       if (s.link) {
         console.log(`     \u{1F517} ${s.link}`);
@@ -3294,8 +3294,8 @@ function cmdStatus(options) {
   const data = loadSessions();
   const entry = data.sessions[cwd];
   if (active) {
-    console.log(`\u2705 \u0421\u0435\u0441\u0441\u0438\u044F \u0430\u043A\u0442\u0438\u0432\u043D\u0430 \u0434\u043B\u044F ${cwd}`);
-    console.log(`   \u0421\u0435\u0441\u0441\u0438\u044F: ${name}`);
+    console.log(`\u2705 Session active for ${cwd}`);
+    console.log(`   Session: ${name}`);
     if (entry?.link) {
       console.log(`   \u{1F517} ${entry.link}`);
     }
@@ -3303,10 +3303,10 @@ function cmdStatus(options) {
       console.log(`   PID: ${pids.join(" ")}`);
     }
   } else {
-    console.log(`\u274C \u0421\u0435\u0441\u0441\u0438\u044F \u043D\u0435 \u0437\u0430\u043F\u0443\u0449\u0435\u043D\u0430 \u0434\u043B\u044F ${cwd}`);
+    console.log(`\u274C Session not running for ${cwd}`);
     if (pids.length > 0) {
-      console.log(`\u26A0\uFE0F  \u041D\u043E \u0435\u0441\u0442\u044C \u0437\u0430\u0432\u0438\u0441\u0448\u0438\u0435 \u043F\u0440\u043E\u0446\u0435\u0441\u0441\u044B: ${pids.join(" ")}`);
-      console.log("   \u0417\u0430\u043F\u0443\u0441\u0442\u0438: crctl stop");
+      console.log(`\u26A0\uFE0F  But there are orphaned processes: ${pids.join(" ")}`);
+      console.log("   Run: crctl stop");
     }
   }
 }
@@ -3314,8 +3314,8 @@ function cmdAttach() {
   const cwd = process.cwd();
   const name = sessionName(cwd);
   if (!sessionExists(name)) {
-    console.log(`\u274C \u041D\u0435\u0442 \u0430\u043A\u0442\u0438\u0432\u043D\u043E\u0439 \u0441\u0435\u0441\u0441\u0438\u0438 \u0434\u043B\u044F ${cwd}`);
-    console.log("   \u0417\u0430\u043F\u0443\u0441\u0442\u0438: crctl start");
+    console.log(`\u274C No active session for ${cwd}`);
+    console.log("   Run: crctl start");
     process.exit(1);
   }
   run("tmux", ["attach-session", "-t", name]);
@@ -3339,7 +3339,7 @@ function cmdLink() {
       return;
     }
   }
-  console.log("\u274C \u0421\u0441\u044B\u043B\u043A\u0430 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u0430");
+  console.log("\u274C Link not found");
   process.exit(1);
 }
 function cmdDoctor() {
@@ -3359,7 +3359,7 @@ function cmdDoctor() {
         const result = run("tmux", ["-V"]);
         return {
           ok: result.code === 0,
-          info: result.stdout || "\u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D"
+          info: result.stdout || "not found"
         };
       }
     },
@@ -3369,14 +3369,14 @@ function cmdDoctor() {
         const result = run("claude", ["--version"]);
         return {
           ok: result.code === 0,
-          info: result.stdout || result.stderr || "\u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D"
+          info: result.stdout || result.stderr || "not found"
         };
       }
     },
     {
       name: "Shell",
       check: () => {
-        const shell = process.env.SHELL || "\u043D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u043E";
+        const shell = process.env.SHELL || "unknown";
         return { ok: true, info: shell };
       }
     },
@@ -3388,7 +3388,7 @@ function cmdDoctor() {
       }
     }
   ];
-  console.log("\u{1FA7A} \u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u0441\u0442\u0435\u0439 crctl:\n");
+  console.log("\u{1FA7A} Checking crctl dependencies:\n");
   let allOk = true;
   for (const c of checks) {
     const { ok, info } = c.check();
@@ -3398,21 +3398,21 @@ function cmdDoctor() {
   }
   console.log("");
   if (!allOk) {
-    console.log("\u26A0\uFE0F  \u041D\u0435\u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u0441\u0442\u0438 \u043D\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u044B.");
+    console.log("\u26A0\uFE0F  Some dependencies are not installed.");
     console.log("");
     if (process.platform === "darwin") {
-      console.log("\u{1F34E} \u0423\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0430 \u043D\u0430 macOS:");
+      console.log("\u{1F34E} Install on macOS:");
       console.log("  brew install node");
       console.log("  brew install tmux");
       console.log("  npm install -g @anthropic-ai/claude-code");
     } else {
-      console.log("\u{1F427} \u0423\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0430 \u043D\u0430 Linux:");
-      console.log("  # Node.js: nvm install --lts \u0438\u043B\u0438 \u043F\u0430\u043A\u0435\u0442 \u0438\u0437 \u0440\u0435\u043F\u043E\u0437\u0438\u0442\u043E\u0440\u0438\u044F");
+      console.log("\u{1F427} Install on Linux:");
+      console.log("  # Node.js: nvm install --lts or from a repository package");
       console.log("  sudo dnf install tmux");
       console.log("  npm install -g @anthropic-ai/claude-code");
     }
   } else {
-    console.log("\u2705 \u0412\u0441\u0435 \u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E\u0441\u0442\u0438 \u0433\u043E\u0442\u043E\u0432\u044B!");
+    console.log("\u2705 All dependencies ready!");
   }
 }
 var FISH_COMPLETION = `
@@ -3507,8 +3507,8 @@ function cmdGenerate(shell) {
       console.log(ZSH_COMPLETION.trim());
       break;
     default:
-      console.log(`\u274C \u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u044B\u0439 shell: ${shell}`);
-      console.log("   \u041F\u043E\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u043C\u044B\u0435: bash, fish, zsh");
+      console.log(`\u274C Unknown shell: ${shell}`);
+      console.log("   Supported: bash, fish, zsh");
       process.exit(1);
   }
 }
@@ -3522,7 +3522,7 @@ function cmdSetup() {
   } else {
     shellName = "bash";
   }
-  console.log(`\u{1F41A} \u041E\u0431\u043D\u0430\u0440\u0443\u0436\u0435\u043D shell: ${shellName} (${shell})`);
+  console.log(`\u{1F41A} Detected shell: ${shellName} (${shell})`);
   const scripts = {
     fish: FISH_COMPLETION.trim(),
     bash: BASH_COMPLETION.trim(),
@@ -3535,14 +3535,14 @@ function cmdSetup() {
     try {
       (0, import_node_fs.mkdirSync)(completionsDir, { recursive: true });
       (0, import_node_fs.writeFileSync)(targetPath, compScript);
-      console.log(`\u2705 \u0410\u0432\u0442\u043E\u0434\u043E\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u0435 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ${targetPath}`);
+      console.log(`\u2705 Auto-completion installed: ${targetPath}`);
       console.log("");
-      console.log("   \u041F\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u0438 \u0442\u0435\u0440\u043C\u0438\u043D\u0430\u043B \u0438\u043B\u0438 \u0432\u044B\u043F\u043E\u043B\u043D\u0438:");
+      console.log("   Restart your terminal or run:");
       console.log(`   fish_update_completions`);
     } catch (err) {
-      console.log("\u274C \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438.");
+      console.log("\u274C Failed to install automatically.");
       console.log("");
-      console.log("   \u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438 \u0432\u0440\u0443\u0447\u043D\u0443\u044E:");
+      console.log("   Install manually:");
       console.log(`   mkdir -p ${completionsDir}`);
       console.log(`   crctl generate fish > ${targetPath}`);
     }
@@ -3550,14 +3550,14 @@ function cmdSetup() {
     const targetPath = (0, import_node_path.join)((0, import_node_os.homedir)(), ".bash_completion_crctl");
     try {
       (0, import_node_fs.writeFileSync)(targetPath, compScript);
-      console.log(`\u2705 \u0421\u043A\u0440\u0438\u043F\u0442 \u0430\u0432\u0442\u043E\u0434\u043E\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u044F: ${targetPath}`);
+      console.log(`\u2705 Auto-completion script: ${targetPath}`);
       console.log("");
-      console.log("   \u0414\u043E\u0431\u0430\u0432\u044C \u0432 ~/.bashrc:");
+      console.log("   Add to ~/.bashrc:");
       console.log(`   source ${targetPath}`);
     } catch (err) {
-      console.log("\u274C \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C.");
+      console.log("\u274C Failed to install.");
       console.log("");
-      console.log("   \u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438 \u0432\u0440\u0443\u0447\u043D\u0443\u044E:");
+      console.log("   Install manually:");
       console.log(`   crctl generate bash > ${targetPath}`);
       console.log(`   echo 'source ${targetPath}' >> ~/.bashrc`);
     }
@@ -3567,13 +3567,13 @@ function cmdSetup() {
     try {
       (0, import_node_fs.mkdirSync)(zshDir, { recursive: true });
       (0, import_node_fs.writeFileSync)(targetPath, compScript);
-      console.log(`\u2705 \u0421\u043A\u0440\u0438\u043F\u0442 \u0430\u0432\u0442\u043E\u0434\u043E\u043F\u043E\u043B\u043D\u0435\u043D\u0438\u044F: ${targetPath}`);
+      console.log(`\u2705 Auto-completion script: ${targetPath}`);
       console.log("");
-      console.log("   \u0414\u043E\u0431\u0430\u0432\u044C 'crctl' \u0432 plugins \u0432 ~/.zshrc");
+      console.log("   Add 'crctl' to plugins in ~/.zshrc");
     } catch (err) {
-      console.log("\u274C \u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u0438\u0442\u044C.");
+      console.log("\u274C Failed to install.");
       console.log("");
-      console.log("   \u0423\u0441\u0442\u0430\u043D\u043E\u0432\u0438 \u0432\u0440\u0443\u0447\u043D\u0443\u044E:");
+      console.log("   Install manually:");
       console.log(`   crctl generate zsh > /usr/local/share/zsh/site-functions/_crctl`);
     }
   }
