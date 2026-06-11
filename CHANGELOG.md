@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.1](https://github.com/JIEHT9U/crctl/compare/v0.4.0...v0.4.1) (2026-06-11)
+
+### Bug Fixes
+
+* fish auto-completion errors — replace deprecated __fish_seen_short_option ([5fe4955](https://github.com/JIEHT9U/crctl/commit/5fe4955e962572f6b80fd321b694f623c5bcecb2))
+
 ## [0.4.0](https://github.com/JIEHT9U/crctl/compare/v0.3.3...v0.4.0) (2026-06-11)
 
 ### Bug Fixes
