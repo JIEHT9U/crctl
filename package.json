@@ -13,6 +13,9 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
     "prepare": "echo 'crctl built — see dist/'"
   },
   "keywords": [
@@ -40,10 +43,12 @@
   },
   "devDependencies": {
     "@release-it/conventional-changelog": "^11.0.1",
+    "@types/node": "^25.9.3",
     "conventional-changelog-conventionalcommits": "^9.3.1",
     "release-it": "^20.2.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.8"
   },
   "engines": {
     "node": ">=20"

@@ -3044,38 +3044,46 @@ var {
   Help
 } = import_index.default;
 
-// src/index.ts
-var import_node_child_process = require("child_process");
-var import_node_crypto = require("crypto");
-var import_node_fs = require("fs");
+// src/constants.ts
 var import_node_path = require("path");
 var import_node_os = require("os");
-var VERSION = __VERSION__;
 var SESSION_PREFIX = "claude-rc";
 var CONFIG_DIR = process.platform === "darwin" ? (0, import_node_path.join)((0, import_node_os.homedir)(), "Library", "Application Support", "crctl") : (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "crctl");
 var SESSIONS_FILE = (0, import_node_path.join)(CONFIG_DIR, "sessions.json");
-function loadSessions() {
-  if ((0, import_node_fs.existsSync)(SESSIONS_FILE)) {
-    try {
-      return JSON.parse((0, import_node_fs.readFileSync)(SESSIONS_FILE, "utf8"));
-    } catch {
-      return { sessions: {} };
-    }
+var REPO = "JIEHT9U/crctl";
+var LINK_WAIT_ATTEMPTS = 30;
+var LINK_WAIT_INTERVAL_MS = 500;
+
+// src/registry.ts
+var import_node_fs = require("fs");
+var import_node_path2 = require("path");
+function loadSessions(file = SESSIONS_FILE) {
+  if (!(0, import_node_fs.existsSync)(file)) {
+    return { sessions: {} };
   }
-  return { sessions: {} };
+  try {
+    const data = JSON.parse((0, import_node_fs.readFileSync)(file, "utf8"));
+    if (data && typeof data === "object" && data.sessions && typeof data.sessions === "object" && !Array.isArray(data.sessions)) {
+      return data;
+    }
+    return { sessions: {} };
+  } catch {
+    return { sessions: {} };
+  }
 }
-function saveSessions(data) {
-  (0, import_node_fs.mkdirSync)(CONFIG_DIR, { recursive: true });
-  (0, import_node_fs.writeFileSync)(SESSIONS_FILE, JSON.stringify(data, null, 2));
+function saveSessions(data, file = SESSIONS_FILE) {
+  (0, import_node_fs.mkdirSync)((0, import_node_path2.dirname)(file), { recursive: true });
+  (0, import_node_fs.writeFileSync)(file, JSON.stringify(data, null, 2));
 }
-function dirHash(dir) {
-  return (0, import_node_crypto.createHash)("md5").update(dir).digest("hex").slice(0, 8);
-}
-function sessionName(dir) {
-  return `${SESSION_PREFIX}-${dirHash(dir)}`;
-}
+
+// src/tmux.ts
+var import_node_child_process = require("child_process");
+var RUN_TIMEOUT_MS = 1e4;
 function run(cmd, args) {
-  const result = (0, import_node_child_process.spawnSync)(cmd, args, { encoding: "utf8", timeout: 1e4 });
+  const result = (0, import_node_child_process.spawnSync)(cmd, args, {
+    encoding: "utf8",
+    timeout: RUN_TIMEOUT_MS
+  });
   return {
     stdout: result.stdout?.trim() ?? "",
     stderr: result.stderr?.trim() ?? "",
@@ -3083,81 +3091,101 @@ function run(cmd, args) {
   };
 }
 function sessionExists(name) {
-  const result = run("tmux", ["has-session", "-t", name]);
-  return result.code === 0;
+  return run("tmux", ["has-session", "-t", name]).code === 0;
+}
+function newSession(name, cwd, command) {
+  return run("tmux", ["new-session", "-d", "-s", name, "-c", cwd, ...command]);
+}
+function killSession(name) {
+  return run("tmux", ["kill-session", "-t", name]);
+}
+function attachSession(name) {
+  const args = process.env.TMUX ? ["switch-client", "-t", name] : ["attach-session", "-t", name];
+  const result = (0, import_node_child_process.spawnSync)("tmux", args, { stdio: "inherit" });
+  return result.status;
 }
 function getPaneContent(name) {
-  try {
-    const result = run("tmux", [
-      "capture-pane",
-      "-t",
-      name,
-      "-p",
-      "-S",
-      "-50",
-      "-J"
-    ]);
-    return result.stdout.replace(/\r/g, "");
-  } catch {
-    return "";
-  }
+  const result = run("tmux", [
+    "capture-pane",
+    "-t",
+    name,
+    "-p",
+    "-S",
+    "-50",
+    "-J"
+  ]);
+  return result.stdout.replace(/\r/g, "");
+}
+function getPanePid(name) {
+  const result = run("tmux", ["list-panes", "-t", name, "-F", "#{pane_pid}"]);
+  return result.stdout || "\u2014";
+}
+function parseSessionList(stdout) {
+  return stdout.split("\n").filter(Boolean).map((line) => {
+    const parts = line.split(/\s+(\/.*)$/, 2);
+    return { name: parts[0], path: parts[1] || "unknown" };
+  }).filter((s) => s.name.startsWith(SESSION_PREFIX + "-"));
+}
+function listCrctlSessions() {
+  const result = run("tmux", [
+    "list-sessions",
+    "-F",
+    "#{session_name} #{pane_current_path}"
+  ]);
+  return parseSessionList(result.stdout || "");
+}
+
+// src/utils.ts
+var import_node_crypto = require("crypto");
+function dirHash(dir) {
+  return (0, import_node_crypto.createHash)("md5").update(dir).digest("hex").slice(0, 8);
+}
+function sessionName(dir) {
+  return `${SESSION_PREFIX}-${dirHash(dir)}`;
 }
 function extractLink(content) {
   const match = content.match(
-    /https:\/\/claude\.ai\/code\?environment=[a-zA-Z0-9_]+/
+    /https:\/\/claude\.ai\/code\?environment=[A-Za-z0-9_-]+/
   );
   return match ? match[0] : null;
 }
-function findClaudeProcesses() {
-  try {
-    const output = (0, import_node_child_process.execSync)("ps aux", { encoding: "utf8" });
-    const pids = [];
-    for (const line of output.split("\n")) {
-      if (line.includes("claude") && line.includes("remote-control")) {
-        const pid = parseInt(line.trim().split(/\s+/)[1], 10);
-        if (!isNaN(pid) && pid !== process.pid) {
-          pids.push(pid);
-        }
-      }
-    }
-    return pids;
-  } catch {
-    return [];
-  }
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
-function killPids(pids) {
-  for (const pid of pids) {
-    try {
-      process.kill(pid, 9);
-    } catch {
-    }
-  }
+function detectShell(shellEnv) {
+  if (shellEnv.includes("fish")) return "fish";
+  if (shellEnv.includes("zsh")) return "zsh";
+  return "bash";
 }
+
+// src/commands/start.ts
 function cmdStart() {
   const cwd = process.cwd();
   const name = sessionName(cwd);
   if (sessionExists(name)) {
+    const entry = loadSessions().sessions[cwd];
     console.log(`\u26A0\uFE0F  Session already active for ${cwd}`);
+    if (entry?.link) {
+      console.log(`   \u{1F517} ${entry.link}`);
+    }
     console.log(`   Connect via: crctl attach`);
-    process.exit(0);
+    return;
   }
   console.log(`\u{1F680} Starting Claude Code (remote-control)...`);
   console.log(`   Directory: ${cwd}`);
-  run("tmux", [
-    "new-session",
-    "-d",
-    "-s",
-    name,
-    "-c",
-    cwd,
-    "claude",
-    "remote-control"
-  ]);
+  const result = newSession(name, cwd, ["claude", "remote-control"]);
+  if (result.code !== 0) {
+    console.log(`\u274C Failed to start tmux session.`);
+    if (result.stderr) {
+      console.log(`   ${result.stderr}`);
+    }
+    console.log(`   Run: crctl doctor`);
+    process.exit(1);
+  }
   let link = null;
-  for (let i = 0; i < 30; i++) {
-    (0, import_node_child_process.spawnSync)("sleep", ["0.5"]);
-    const content = getPaneContent(name);
-    link = extractLink(content);
+  for (let i = 0; i < LINK_WAIT_ATTEMPTS; i++) {
+    sleep(LINK_WAIT_INTERVAL_MS);
+    link = extractLink(getPaneContent(name));
     if (link) break;
   }
   const data = loadSessions();
@@ -3178,6 +3206,39 @@ function cmdStart() {
     console.log(`   crctl attach`);
   }
 }
+
+// src/processes.ts
+var import_node_child_process2 = require("child_process");
+function parseClaudePids(psOutput, excludePid) {
+  const pids = [];
+  for (const line of psOutput.split("\n")) {
+    if (line.includes("claude") && line.includes("remote-control")) {
+      const pid = parseInt(line.trim().split(/\s+/)[1], 10);
+      if (!isNaN(pid) && pid !== excludePid) {
+        pids.push(pid);
+      }
+    }
+  }
+  return pids;
+}
+function findClaudeProcesses() {
+  try {
+    const output = (0, import_node_child_process2.execSync)("ps aux", { encoding: "utf8" });
+    return parseClaudePids(output, process.pid);
+  } catch {
+    return [];
+  }
+}
+function killPids(pids) {
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 9);
+    } catch {
+    }
+  }
+}
+
+// src/commands/stop.ts
 function cmdStop(options) {
   const data = loadSessions();
   if (options.global) {
@@ -3191,10 +3252,10 @@ function cmdStop(options) {
     console.log(`\u{1F6D1} Stopping all sessions (${targets.length})...`);
     for (const s of targets) {
       console.log(`   \u{1F4C2} ${s.cwd}`);
-      run("tmux", ["kill-session", "-t", s.name]);
+      killSession(s.name);
       delete data.sessions[s.cwd];
     }
-    (0, import_node_child_process.spawnSync)("sleep", ["1"]);
+    sleep(1e3);
     const pids2 = findClaudeProcesses();
     if (pids2.length > 0) {
       console.log(`   Killing orphaned processes: ${pids2.join(" ")}`);
@@ -3209,12 +3270,15 @@ function cmdStop(options) {
   let stopped = false;
   if (sessionExists(name)) {
     console.log(`\u{1F6D1} Stopping session for ${cwd}...`);
-    run("tmux", ["kill-session", "-t", name]);
+    killSession(name);
     stopped = true;
     delete data.sessions[cwd];
-    (0, import_node_child_process.spawnSync)("sleep", ["1"]);
+    sleep(1e3);
   }
-  const pids = findClaudeProcesses();
+  const othersActive = Object.values(data.sessions).some(
+    (s) => s.cwd !== cwd && sessionExists(s.name)
+  );
+  const pids = othersActive ? [] : findClaudeProcesses();
   if (pids.length > 0) {
     console.log(`   Killing orphaned processes: ${pids.join(" ")}`);
     killPids(pids);
@@ -3228,6 +3292,8 @@ function cmdStop(options) {
     console.log("\u2139\uFE0F  Session not found. All clean.");
   }
 }
+
+// src/commands/status.ts
 function cmdStatus(options) {
   if (options.global) {
     const data2 = loadSessions();
@@ -3235,15 +3301,7 @@ function cmdStatus(options) {
       (s) => sessionExists(s.name)
     );
     if (sessions.length === 0) {
-      const result = run("tmux", [
-        "list-sessions",
-        "-F",
-        "#{session_name} #{pane_current_path}"
-      ]);
-      const tmuxSessions = (result.stdout || "").split("\n").filter(Boolean).map((line) => {
-        const parts = line.split(/\s+(\/.*)$/, 2);
-        return { name: parts[0], path: parts[1] || "unknown" };
-      }).filter((s) => s.name.startsWith(SESSION_PREFIX + "-"));
+      const tmuxSessions = listCrctlSessions();
       if (tmuxSessions.length === 0) {
         console.log("No active crctl sessions");
         return;
@@ -3251,17 +3309,9 @@ function cmdStatus(options) {
       console.log("\u{1F30D} Active crctl sessions:");
       console.log("");
       for (const s of tmuxSessions) {
-        const pidResult = run("tmux", [
-          "list-panes",
-          "-t",
-          s.name,
-          "-F",
-          "#{pane_pid}"
-        ]);
-        const pid = pidResult.stdout || "\u2014";
         console.log(`  \u{1F4C2} ${s.path}`);
         console.log(`     Session: ${s.name}`);
-        console.log(`     PID: ${pid}`);
+        console.log(`     PID: ${getPanePid(s.name)}`);
         console.log("");
       }
       return;
@@ -3269,17 +3319,9 @@ function cmdStatus(options) {
     console.log("\u{1F30D} Active crctl sessions:");
     console.log("");
     for (const s of sessions) {
-      const pidResult = run("tmux", [
-        "list-panes",
-        "-t",
-        s.name,
-        "-F",
-        "#{pane_pid}"
-      ]);
-      const pid = pidResult.stdout || "\u2014";
       console.log(`  \u{1F4C2} ${s.cwd}`);
       console.log(`     Session: ${s.name}`);
-      console.log(`     PID: ${pid}`);
+      console.log(`     PID: ${getPanePid(s.name)}`);
       if (s.link) {
         console.log(`     \u{1F517} ${s.link}`);
       }
@@ -3290,7 +3332,6 @@ function cmdStatus(options) {
   const cwd = process.cwd();
   const name = sessionName(cwd);
   const active = sessionExists(name);
-  const pids = findClaudeProcesses();
   const data = loadSessions();
   const entry = data.sessions[cwd];
   if (active) {
@@ -3299,17 +3340,21 @@ function cmdStatus(options) {
     if (entry?.link) {
       console.log(`   \u{1F517} ${entry.link}`);
     }
-    if (pids.length > 0) {
-      console.log(`   PID: ${pids.join(" ")}`);
-    }
-  } else {
-    console.log(`\u274C Session not running for ${cwd}`);
-    if (pids.length > 0) {
-      console.log(`\u26A0\uFE0F  But there are orphaned processes: ${pids.join(" ")}`);
-      console.log("   Run: crctl stop");
-    }
+    console.log(`   PID: ${getPanePid(name)}`);
+    return;
+  }
+  console.log(`\u274C Session not running for ${cwd}`);
+  const othersActive = Object.values(data.sessions).some(
+    (s) => s.cwd !== cwd && sessionExists(s.name)
+  );
+  const pids = othersActive ? [] : findClaudeProcesses();
+  if (pids.length > 0) {
+    console.log(`\u26A0\uFE0F  But there are orphaned processes: ${pids.join(" ")}`);
+    console.log("   Run: crctl stop");
   }
 }
+
+// src/commands/attach.ts
 function cmdAttach() {
   const cwd = process.cwd();
   const name = sessionName(cwd);
@@ -3318,8 +3363,13 @@ function cmdAttach() {
     console.log("   Run: crctl start");
     process.exit(1);
   }
-  run("tmux", ["attach-session", "-t", name]);
+  const code = attachSession(name);
+  if (code !== 0) {
+    process.exit(code ?? 1);
+  }
 }
+
+// src/commands/link.ts
 function cmdLink() {
   const cwd = process.cwd();
   const name = sessionName(cwd);
@@ -3330,11 +3380,10 @@ function cmdLink() {
     return;
   }
   if (sessionExists(name)) {
-    const content = getPaneContent(name);
-    const link = extractLink(content);
+    const link = extractLink(getPaneContent(name));
     if (link) {
       console.log(link);
-      entry.link = link;
+      data.sessions[cwd] = entry ? { ...entry, link } : { name, cwd, pids: [], link };
       saveSessions(data);
       return;
     }
@@ -3342,16 +3391,13 @@ function cmdLink() {
   console.log("\u274C Link not found");
   process.exit(1);
 }
-function cmdDoctor() {
-  const checks = [
+
+// src/commands/doctor.ts
+function buildChecks() {
+  return [
     {
       name: "Node.js",
-      check: () => {
-        const version = (0, import_node_child_process.execSync)("node --version", {
-          encoding: "utf8"
-        }).trim();
-        return { ok: true, info: version };
-      }
+      check: () => ({ ok: true, info: process.version })
     },
     {
       name: "tmux",
@@ -3375,10 +3421,7 @@ function cmdDoctor() {
     },
     {
       name: "Shell",
-      check: () => {
-        const shell = process.env.SHELL || "unknown";
-        return { ok: true, info: shell };
-      }
+      check: () => ({ ok: true, info: process.env.SHELL || "unknown" })
     },
     {
       name: "Platform",
@@ -3388,42 +3431,52 @@ function cmdDoctor() {
       }
     }
   ];
+}
+function cmdDoctor() {
   console.log("\u{1FA7A} Checking crctl dependencies:\n");
   let allOk = true;
-  for (const c of checks) {
+  for (const c of buildChecks()) {
     const { ok, info } = c.check();
     const icon = ok ? "\u2705" : "\u274C";
     console.log(`  ${icon} ${c.name.padEnd(12)} ${info}`);
     if (!ok) allOk = false;
   }
   console.log("");
-  if (!allOk) {
-    console.log("\u26A0\uFE0F  Some dependencies are not installed.");
-    console.log("");
-    if (process.platform === "darwin") {
-      console.log("\u{1F34E} Install on macOS:");
-      console.log("  brew install node");
-      console.log("  brew install tmux");
-      console.log("  npm install -g @anthropic-ai/claude-code");
-    } else {
-      console.log("\u{1F427} Install on Linux:");
-      console.log("  # Node.js: nvm install --lts or from a repository package");
-      console.log("  sudo dnf install tmux");
-      console.log("  npm install -g @anthropic-ai/claude-code");
-    }
-  } else {
+  if (allOk) {
     console.log("\u2705 All dependencies ready!");
+    return;
+  }
+  console.log("\u26A0\uFE0F  Some dependencies are not installed.");
+  console.log("");
+  if (process.platform === "darwin") {
+    console.log("\u{1F34E} Install on macOS:");
+    console.log("  brew install node");
+    console.log("  brew install tmux");
+    console.log("  npm install -g @anthropic-ai/claude-code");
+  } else {
+    console.log("\u{1F427} Install on Linux:");
+    console.log("  # Node.js: nvm install --lts or from a repository package");
+    console.log("  sudo dnf install tmux");
+    console.log("  npm install -g @anthropic-ai/claude-code");
   }
 }
+
+// src/commands/completions.ts
+var import_node_fs2 = require("fs");
+var import_node_os2 = require("os");
+var import_node_path3 = require("path");
+
+// src/completions.ts
 var FISH_COMPLETION = `
 # crctl \u2014 fish completion
 
-# Helper: get current subcommand from commandline
+# Helper: get current subcommand from the command line (tokens before cursor,
+# skipping the program name and any flags)
 function __fish_crctl_current_sub
-    set -l tokens (commandline -ct)
-    for tok in $tokens
+    set -l tokens (commandline -opc)
+    for tok in $tokens[2..-1]
         switch $tok
-            case '-*' '*=*'
+            case '-*'
                 continue
             case '*'
                 echo $tok
@@ -3444,8 +3497,8 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'update' -d 'Check for update
 complete -c crctl -f -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove crctl and clean up'
 complete -c crctl -f -s V -l version -d 'Version'
 complete -c crctl -f -s h -l help -d 'Help'
-complete -c crctl -f -s g -l global -d 'Apply to all sessions'
-complete -c crctl -n 'string match -q "generate" (__fish_crctl_current_sub)' -f -a 'bash fish zsh' -d 'Shell type'
+complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) stop status' -s g -l global -d 'Apply to all sessions'
+complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) generate' -a 'bash fish zsh' -d 'Shell type'
 `;
 var BASH_COMPLETION = `
 # crctl \u2014 bash completion
@@ -3474,8 +3527,8 @@ _crctl() {
 complete -F _crctl crctl
 `;
 var ZSH_COMPLETION = `
-# crctl \u2014 zsh completion
 #compdef crctl
+# crctl \u2014 zsh completion
 
 _crctl() {
     local commands
@@ -3492,7 +3545,11 @@ _crctl() {
         'uninstall:Remove crctl and clean up'
     )
 
-    _arguments -C         '(- *){-V,--version}'         '(- *){-h,--help}'         '1: :->cmds'         '*::arg:->args' && return 0
+    _arguments -C \\
+        '(- *){-V,--version}[Show version]' \\
+        '(- *){-h,--help}[Show help]' \\
+        '1: :->cmds' \\
+        '*::arg:->args' && return 0
 
     case $state in
         cmds)
@@ -3500,60 +3557,55 @@ _crctl() {
         args)
             case $words[1] in
                 stop|status)
-                    _arguments '(-g,--global)'                         '(-g --global){-g,--global}[Stop/Show ALL sessions]' ;;
+                    _arguments '(-g --global)'{-g,--global}'[Apply to all sessions]' ;;
                 generate)
                     _arguments '1:shell:(bash fish zsh)' ;;
             esac ;;
     esac
 }
 
-_crctl "@"
+_crctl "$@"
 `;
-function cmdGenerate(shell) {
+var SUPPORTED_SHELLS = ["bash", "fish", "zsh"];
+function getCompletionScript(shell) {
   switch (shell) {
     case "fish":
-      console.log(FISH_COMPLETION.trim());
-      break;
+      return FISH_COMPLETION.trim();
     case "bash":
-      console.log(BASH_COMPLETION.trim());
-      break;
+      return BASH_COMPLETION.trim();
     case "zsh":
-      console.log(ZSH_COMPLETION.trim());
-      break;
+      return ZSH_COMPLETION.trim();
     default:
-      console.log(`\u274C Unknown shell: ${shell}`);
-      console.log("   Supported: bash, fish, zsh");
-      process.exit(1);
+      return null;
   }
+}
+
+// src/commands/completions.ts
+function cmdGenerate(shell) {
+  const script = getCompletionScript(shell);
+  if (!script) {
+    console.log(`\u274C Unknown shell: ${shell}`);
+    console.log(`   Supported: ${SUPPORTED_SHELLS.join(", ")}`);
+    process.exit(1);
+  }
+  console.log(script);
 }
 function cmdSetup() {
   const shell = process.env.SHELL || "";
-  let shellName;
-  if (shell.includes("fish")) {
-    shellName = "fish";
-  } else if (shell.includes("zsh")) {
-    shellName = "zsh";
-  } else {
-    shellName = "bash";
-  }
+  const shellName = detectShell(shell);
   console.log(`\u{1F41A} Detected shell: ${shellName} (${shell})`);
-  const scripts = {
-    fish: FISH_COMPLETION.trim(),
-    bash: BASH_COMPLETION.trim(),
-    zsh: ZSH_COMPLETION.trim()
-  };
-  const compScript = scripts[shellName];
+  const compScript = getCompletionScript(shellName);
   if (shellName === "fish") {
-    const completionsDir = (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "fish", "completions");
-    const targetPath = (0, import_node_path.join)(completionsDir, "crctl.fish");
+    const completionsDir = (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".config", "fish", "completions");
+    const targetPath = (0, import_node_path3.join)(completionsDir, "crctl.fish");
     try {
-      (0, import_node_fs.mkdirSync)(completionsDir, { recursive: true });
-      (0, import_node_fs.writeFileSync)(targetPath, compScript);
+      (0, import_node_fs2.mkdirSync)(completionsDir, { recursive: true });
+      (0, import_node_fs2.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion installed: ${targetPath}`);
       console.log("");
       console.log("   Restart your terminal or run:");
       console.log(`   fish_update_completions`);
-    } catch (err) {
+    } catch {
       console.log("\u274C Failed to install automatically.");
       console.log("");
       console.log("   Install manually:");
@@ -3561,54 +3613,72 @@ function cmdSetup() {
       console.log(`   crctl generate fish > ${targetPath}`);
     }
   } else if (shellName === "bash") {
-    const targetPath = (0, import_node_path.join)((0, import_node_os.homedir)(), ".bash_completion_crctl");
+    const targetPath = (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".bash_completion_crctl");
     try {
-      (0, import_node_fs.writeFileSync)(targetPath, compScript);
+      (0, import_node_fs2.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion script: ${targetPath}`);
       console.log("");
       console.log("   Add to ~/.bashrc:");
       console.log(`   source ${targetPath}`);
-    } catch (err) {
+    } catch {
       console.log("\u274C Failed to install.");
       console.log("");
       console.log("   Install manually:");
       console.log(`   crctl generate bash > ${targetPath}`);
       console.log(`   echo 'source ${targetPath}' >> ~/.bashrc`);
     }
-  } else if (shellName === "zsh") {
-    const zshDir = (0, import_node_path.join)((0, import_node_os.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl");
-    const targetPath = (0, import_node_path.join)(zshDir, "_crctl");
+  } else {
+    const zshDir = (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl");
+    const targetPath = (0, import_node_path3.join)(zshDir, "_crctl");
     try {
-      (0, import_node_fs.mkdirSync)(zshDir, { recursive: true });
-      (0, import_node_fs.writeFileSync)(targetPath, compScript);
+      (0, import_node_fs2.mkdirSync)(zshDir, { recursive: true });
+      (0, import_node_fs2.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion script: ${targetPath}`);
       console.log("");
       console.log("   Add 'crctl' to plugins in ~/.zshrc");
-    } catch (err) {
+    } catch {
       console.log("\u274C Failed to install.");
       console.log("");
       console.log("   Install manually:");
-      console.log(`   crctl generate zsh > /usr/local/share/zsh/site-functions/_crctl`);
+      console.log(
+        `   crctl generate zsh > /usr/local/share/zsh/site-functions/_crctl`
+      );
     }
   }
 }
-function cmdUpdate() {
+
+// src/commands/update.ts
+var import_node_child_process3 = require("child_process");
+function cmdUpdate(currentVersion) {
   console.log("\u{1F504} Checking for updates...");
   try {
-    const output = (0, import_node_child_process.execSync)("curl -s https://api.github.com/repos/JIEHT9U/crctl/releases/latest", {
-      encoding: "utf8"
-    });
+    const output = (0, import_node_child_process3.execSync)(
+      `curl -s https://api.github.com/repos/${REPO}/releases/latest`,
+      { encoding: "utf8" }
+    );
     const latest = JSON.parse(output);
-    const latestVersion = latest.tag_name.replace("v", "");
-    if (latestVersion === VERSION) {
-      console.log(`\u2705 crctl is already up to date (${VERSION}).`);
+    if (!latest || typeof latest.tag_name !== "string") {
+      console.log("\u274C Could not determine the latest version.");
+      console.log("   (GitHub API rate limit or no releases yet?)");
+      process.exit(1);
+    }
+    const latestVersion = latest.tag_name.replace(/^v/, "");
+    if (latestVersion === currentVersion) {
+      console.log(`\u2705 crctl is already up to date (${currentVersion}).`);
       return;
     }
-    console.log(`\u{1F680} New version available: ${latestVersion} (you have ${VERSION})`);
+    console.log(
+      `\u{1F680} New version available: ${latestVersion} (you have ${currentVersion})`
+    );
     console.log("   Updating...");
-    const result = (0, import_node_child_process.spawnSync)("sh", ["-c", "curl -fsSL https://raw.githubusercontent.com/JIEHT9U/crctl/main/install.sh | sh"], {
-      stdio: "inherit"
-    });
+    const result = (0, import_node_child_process3.spawnSync)(
+      "sh",
+      [
+        "-c",
+        `curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh`
+      ],
+      { stdio: "inherit" }
+    );
     if (result.status === 0) {
       console.log(`\u2705 Updated to ${latestVersion}!`);
     } else {
@@ -3621,35 +3691,35 @@ function cmdUpdate() {
     process.exit(1);
   }
 }
+
+// src/commands/uninstall.ts
+var import_node_fs3 = require("fs");
+var import_node_os3 = require("os");
+var import_node_path4 = require("path");
 function cmdUninstall() {
   const binaryPath = process.argv[1];
-  const shell = process.env.SHELL || "";
-  let shellName = "unknown";
-  if (shell.includes("fish")) shellName = "fish";
-  else if (shell.includes("zsh")) shellName = "zsh";
-  else shellName = "bash";
+  const shellName = detectShell(process.env.SHELL || "");
   console.log("\u{1F5D1}\uFE0F  Uninstalling crctl...");
   try {
-    (0, import_node_fs.unlinkSync)(binaryPath);
+    (0, import_node_fs3.unlinkSync)(binaryPath);
     console.log(`\u2705 Binary removed: ${binaryPath}`);
   } catch {
     console.log(`\u26A0\uFE0F  Could not remove binary: ${binaryPath}`);
   }
   const configs = {
-    fish: (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "fish", "config.fish"),
-    bash: (0, import_node_path.join)((0, import_node_os.homedir)(), ".bashrc"),
-    zsh: (0, import_node_path.join)((0, import_node_os.homedir)(), ".zshrc")
+    fish: (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".config", "fish", "config.fish"),
+    bash: (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".bashrc"),
+    zsh: (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".zshrc")
   };
   const configPath = configs[shellName];
-  if (configPath && (0, import_node_fs.existsSync)(configPath)) {
+  if (configPath && (0, import_node_fs3.existsSync)(configPath)) {
     try {
-      let content = (0, import_node_fs.readFileSync)(configPath, "utf8");
-      const originalLines = content.split("\n");
+      const originalLines = (0, import_node_fs3.readFileSync)(configPath, "utf8").split("\n");
       const cleanedLines = originalLines.filter(
-        (line) => !line.includes("crctl") && !line.includes("crctl")
+        (line) => !line.includes("crctl")
       );
       if (cleanedLines.length < originalLines.length) {
-        (0, import_node_fs.writeFileSync)(configPath, cleanedLines.join("\n"));
+        (0, import_node_fs3.writeFileSync)(configPath, cleanedLines.join("\n"));
         console.log(`\u2705 Cleaned crctl entries from ${configPath}`);
       }
     } catch {
@@ -3657,33 +3727,45 @@ function cmdUninstall() {
     }
   }
   const completionPaths = [
-    (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "fish", "completions", "crctl.fish"),
-    (0, import_node_path.join)((0, import_node_os.homedir)(), ".bash_completion_crctl")
+    (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".config", "fish", "completions", "crctl.fish"),
+    (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".bash_completion_crctl"),
+    (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl", "_crctl")
   ];
   for (const path of completionPaths) {
-    if ((0, import_node_fs.existsSync)(path)) {
+    if ((0, import_node_fs3.existsSync)(path)) {
       try {
-        (0, import_node_fs.unlinkSync)(path);
+        (0, import_node_fs3.unlinkSync)(path);
         console.log(`\u2705 Removed completion: ${path}`);
       } catch {
       }
     }
   }
+  if ((0, import_node_fs3.existsSync)(CONFIG_DIR)) {
+    try {
+      (0, import_node_fs3.rmSync)(CONFIG_DIR, { recursive: true, force: true });
+      console.log(`\u2705 Removed config: ${CONFIG_DIR}`);
+    } catch {
+      console.log(`\u26A0\uFE0F  Could not remove config: ${CONFIG_DIR}`);
+    }
+  }
   console.log("");
-  console.log("\u{1F44B} crctl has been removed. You may need to restart your terminal.");
+  console.log(
+    "\u{1F44B} crctl has been removed. You may need to restart your terminal."
+  );
 }
+
+// src/index.ts
+var VERSION = typeof __VERSION__ !== "undefined" ? __VERSION__ : "dev";
 var program2 = new Command();
 program2.name("crctl").description("Claude Remote Control \u2014 manage Claude Code sessions via tmux").version(VERSION);
 program2.command("start").description("Start Claude Code in remote-control mode (current directory)").action(cmdStart);
 program2.command("stop").description("Stop Claude Code session (current directory)").option("-g, --global", "Stop ALL sessions in all directories").action(cmdStop);
-program2.command("status").description("Show Claude Code session status").option("-g, --global", "Show all sessions in all directories").action((opts) => cmdStatus({ global: !!opts.global }));
+program2.command("status").description("Show Claude Code session status").option("-g, --global", "Show all sessions in all directories").action(cmdStatus);
 program2.command("attach").description("Attach to the current directory's tmux session").action(cmdAttach);
 program2.command("link").description("Print the browser link for the current directory's session").action(cmdLink);
 program2.command("doctor").description("Check all dependencies and show install instructions").action(cmdDoctor);
 program2.command("generate").description("Generate shell completion script (bash|fish|zsh)").argument("<shell>", "Shell type: bash, fish, or zsh").action(cmdGenerate);
-program2.command("setup").description(
-  "Auto-detect your shell and install completions"
-).action(cmdSetup);
-program2.command("update").description("Check for updates and upgrade to the latest version").action(cmdUpdate);
+program2.command("setup").description("Auto-detect your shell and install completions").action(cmdSetup);
+program2.command("update").description("Check for updates and upgrade to the latest version").action(() => cmdUpdate(VERSION));
 program2.command("uninstall").description("Remove crctl and clean up shell configurations").action(cmdUninstall);
 program2.parse();
