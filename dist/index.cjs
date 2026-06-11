@@ -3049,7 +3049,7 @@ var import_node_crypto = require("crypto");
 var import_node_fs = require("fs");
 var import_node_path = require("path");
 var import_node_os = require("os");
-var VERSION = "0.3.1";
+var VERSION = "0.3.3";
 var SESSION_PREFIX = "claude-rc";
 var CONFIG_DIR = process.platform === "darwin" ? (0, import_node_path.join)((0, import_node_os.homedir)(), "Library", "Application Support", "crctl") : (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "crctl");
 var SESSIONS_FILE = (0, import_node_path.join)(CONFIG_DIR, "sessions.json");

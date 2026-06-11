@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.3](https://github.com/JIEHT9U/crctl/compare/v0.3.2...v0.3.3) (2026-06-11)
+
+### Bug Fixes
+
+* build after version bump so dist has correct version ([58c1a95](https://github.com/JIEHT9U/crctl/commit/58c1a959aa40db40617fac489dc0fc0d3f8b67a0))
+
 ## [0.3.2](https://github.com/JIEHT9U/crctl/compare/v0.3.1...v0.3.2) (2026-06-11)
 
 ### Bug Fixes
