@@ -11,7 +11,12 @@ export function cmdAttach(): void {
     process.exit(1);
   }
 
-  console.log(`💡 Detach without stopping: Ctrl+B D  (then resume with: crctl attach)`);
+  console.log(`┌─────────────────────────────────────────────────────┐`);
+  console.log(`│  To detach (keep session running):                  │`);
+  console.log(`│    Press  Ctrl-b  then  d                           │`);
+  console.log(`│                                                     │`);
+  console.log(`│  To stop completely:  crctl stop                    │`);
+  console.log(`└─────────────────────────────────────────────────────┘`);
 
   const code = attachSession(name);
   if (code !== 0) {

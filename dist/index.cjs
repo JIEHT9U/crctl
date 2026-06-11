@@ -3094,7 +3094,27 @@ function sessionExists(name) {
   return run("tmux", ["has-session", "-t", name]).code === 0;
 }
 function newSession(name, cwd, command) {
-  return run("tmux", ["new-session", "-d", "-s", name, "-c", cwd, ...command]);
+  const result = run("tmux", [
+    "new-session",
+    "-d",
+    "-s",
+    name,
+    "-c",
+    cwd,
+    ...command
+  ]);
+  if (result.code === 0) {
+    run("tmux", [
+      "set-option",
+      "-t",
+      name,
+      "status-right",
+      "  Detach (keep running): prefix + d  |  prefix = Ctrl-b  "
+    ]);
+    run("tmux", ["set-option", "-t", name, "status", "on"]);
+    run("tmux", ["set-option", "-t", name, "status-style", "bg=colour235,fg=colour250"]);
+  }
+  return result;
 }
 function killSession(name) {
   return run("tmux", ["kill-session", "-t", name]);
@@ -3367,7 +3387,12 @@ function cmdAttach() {
     console.log("   Run: crctl start");
     process.exit(1);
   }
-  console.log(`\u{1F4A1} Detach without stopping: Ctrl+B D  (then resume with: crctl attach)`);
+  console.log(`\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510`);
+  console.log(`\u2502  To detach (keep session running):                  \u2502`);
+  console.log(`\u2502    Press  Ctrl-b  then  d                           \u2502`);
+  console.log(`\u2502                                                     \u2502`);
+  console.log(`\u2502  To stop completely:  crctl stop                    \u2502`);
+  console.log(`\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518`);
   const code = attachSession(name);
   if (code !== 0) {
     process.exit(code ?? 1);

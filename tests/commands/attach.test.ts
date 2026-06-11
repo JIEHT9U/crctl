@@ -28,7 +28,8 @@ describe("cmdAttach", () => {
 
     cmdAttach();
 
-    expect(log.output()).toContain("Ctrl+B D");
+    expect(log.output()).toContain("Ctrl-b");
+    expect(log.output()).toContain("crctl stop");
     expect(attachSession).toHaveBeenCalledWith(NAME);
   });
 

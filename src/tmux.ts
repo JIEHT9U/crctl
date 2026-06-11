@@ -28,7 +28,20 @@ export function newSession(
   cwd: string,
   command: string[]
 ): RunResult {
-  return run("tmux", ["new-session", "-d", "-s", name, "-c", cwd, ...command]);
+  const result = run("tmux", [
+    "new-session", "-d", "-s", name, "-c", cwd, ...command,
+  ]);
+  if (result.code === 0) {
+    // Show a persistent status bar so the detach hint is always visible.
+    run("tmux", [
+      "set-option", "-t", name,
+      "status-right",
+      "  Detach (keep running): prefix + d  |  prefix = Ctrl-b  ",
+    ]);
+    run("tmux", ["set-option", "-t", name, "status", "on"]);
+    run("tmux", ["set-option", "-t", name, "status-style", "bg=colour235,fg=colour250"]);
+  }
+  return result;
 }
 
 /** Kill a tmux session by name. */
