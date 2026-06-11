@@ -16,8 +16,7 @@ export default defineConfig({
   banner: {
     js: "#!/usr/bin/env node",
   },
-  replace: {
+  define: {
     __VERSION__: JSON.stringify(pkg.version),
-    __INSTALL_SCRIPT_URL__: JSON.stringify("https://raw.githubusercontent.com/JIEHT9U/crctl/main/install.sh"),
   },
 });
