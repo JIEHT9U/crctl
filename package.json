@@ -13,7 +13,7 @@
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "prepare": "tsup"
+    "prepare": "echo 'crctl built — see dist/'"
   },
   "keywords": [
     "claude",
