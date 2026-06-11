@@ -63,8 +63,7 @@
       }
     },
     "hooks": {
-      "before:bump": "npm run build",
-      "after:bump": "git add -A"
+      "after:bump": "npm run build && git add -A"
     }
   }
 }
