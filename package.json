@@ -50,7 +50,8 @@
   },
   "release-it": {
     "github": {
-      "release": true
+      "release": true,
+      "tokenRef": "GITHUB_RELESE_TOKEN"
     },
     "npm": {
       "publish": false
