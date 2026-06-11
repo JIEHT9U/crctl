@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.0](https://github.com/JIEHT9U/crctl/compare/v0.3.3...v0.4.0) (2026-06-11)
+
+### Bug Fixes
+
+* inject version via banner instead of define (fix CI) ([4daeb23](https://github.com/JIEHT9U/crctl/commit/4daeb23591852c1c3f8ddb92d1700a5ee44ddeb5))
+
 ## [0.3.3](https://github.com/JIEHT9U/crctl/compare/v0.3.2...v0.3.3) (2026-06-11)
 
 ### Bug Fixes
