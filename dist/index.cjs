@@ -3417,6 +3417,21 @@ function cmdDoctor() {
 }
 var FISH_COMPLETION = `
 # crctl \u2014 fish completion
+
+# Helper: get current subcommand from commandline
+function __fish_crctl_current_sub
+    set -l tokens (commandline -ct)
+    for tok in $tokens
+        switch $tok
+            case '-*' '*=*'
+                continue
+            case '*'
+                echo $tok
+                return
+        end
+    end
+end
+
 complete -c crctl -f -n '__fish_use_subcommand' -a 'start' -d 'Start Claude Code in remote-control mode'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'stop' -d 'Stop Claude Code session'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'status' -d 'Show Claude Code session status'
@@ -3427,11 +3442,10 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'setup' -d 'Install shell com
 complete -c crctl -f -n '__fish_use_subcommand' -a 'generate' -d 'Generate completion script'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'update' -d 'Check for updates and upgrade'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove crctl and clean up'
-complete -c crctl -f -n '__fish_seen_short_option "-V"' -s V -l version -d 'Version'
-complete -c crctl -f -n '__fish_seen_short_option "-h"' -s h -l help -d 'Help'
-complete -c crctl -f -n '__fish_complete_subcommand crctl stop' -s g -l global -d 'Stop ALL sessions'
-complete -c crctl -f -n '__fish_complete_subcommand crctl status' -s g -l global -d 'Show all sessions'
-complete -c crctl generate -f -a 'bash fish zsh' -d 'Shell type'
+complete -c crctl -f -s V -l version -d 'Version'
+complete -c crctl -f -s h -l help -d 'Help'
+complete -c crctl -f -s g -l global -d 'Apply to all sessions'
+complete -c crctl -n 'string match -q "generate" (__fish_crctl_current_sub)' -f -a 'bash fish zsh' -d 'Shell type'
 `;
 var BASH_COMPLETION = `
 # crctl \u2014 bash completion
