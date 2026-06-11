@@ -1,0 +1,48 @@
+{
+  "name": "crctl",
+  "version": "0.2.0",
+  "description": "CLI utility for managing Claude Code remote-control sessions via tmux",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "crctl": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "prepare": "tsup"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "remote-control",
+    "tmux",
+    "cli",
+    "session-manager",
+    "terminal",
+    "devtools"
+  ],
+  "author": "JIEHT9U",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JIEHT9U/crctl.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JIEHT9U/crctl/issues"
+  },
+  "homepage": "https://github.com/JIEHT9U/crctl#readme",
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "tsup": "^8.3.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
