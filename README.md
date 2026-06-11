@@ -38,9 +38,7 @@ Each directory gets its own isolated session. One command to start, one to stop.
 ## 📦 Installation
 
 ```bash
-# Clone and install globally
-git clone https://github.com/JIEHT9U/crctl.git && cd crctl
-npm install -g .
+npm install -g git+https://github.com/JIEHT9U/crctl.git
 
 # Check dependencies
 crctl doctor
