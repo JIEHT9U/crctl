@@ -14,9 +14,6 @@ export default defineConfig({
   clean: true,
   noExternal: ["commander"],
   banner: {
-    js: "#!/usr/bin/env node",
-  },
-  define: {
-    __VERSION__: JSON.stringify(pkg.version),
+    js: `#!/usr/bin/env node\nvar __VERSION__ = "${pkg.version}";`,
   },
 });
