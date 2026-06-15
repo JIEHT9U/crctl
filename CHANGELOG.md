@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.0](https://github.com/JIEHT9U/crctl/compare/v0.7.0...v0.8.0) (2026-06-15)
+
+### Features
+
+* autostart sessions after reboot via systemd/launchd ([a1229e0](https://github.com/JIEHT9U/crctl/commit/a1229e09735c2f88d147e1ee303fce8bd4944df1))
+
 ## [0.7.0](https://github.com/JIEHT9U/crctl/compare/v0.6.1...v0.7.0) (2026-06-11)
 
 ### Features
