@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.2](https://github.com/JIEHT9U/crctl/compare/v0.8.1...v0.8.2) (2026-06-15)
+
+### Bug Fixes
+
+* auto-trust the workspace so detached start doesn't hang ([a648931](https://github.com/JIEHT9U/crctl/commit/a648931d5c9bc441c6e51f7b9200fdc493db5b76))
+
 ## [0.8.1](https://github.com/JIEHT9U/crctl/compare/v0.8.0...v0.8.1) (2026-06-15)
 
 ### Bug Fixes
