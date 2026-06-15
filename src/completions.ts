@@ -24,6 +24,8 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'status' -d 'Show Claude Code
 complete -c crctl -f -n '__fish_use_subcommand' -a 'attach' -d 'Attach to tmux session'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'detach' -d 'Detach from session without stopping it'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'link' -d 'Print browser link'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'restore' -d 'Re-start all registered sessions'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'service' -d 'Manage the autostart service'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'doctor' -d 'Check dependencies'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'setup' -d 'Install shell completions'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'generate' -d 'Generate completion script'
@@ -33,13 +35,14 @@ complete -c crctl -f -s V -l version -d 'Version'
 complete -c crctl -f -s h -l help -d 'Help'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) stop status' -s g -l global -d 'Apply to all sessions'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) generate' -a 'bash fish zsh' -d 'Shell type'
+complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) service' -a 'install uninstall status' -d 'Service action'
 `;
 
 export const BASH_COMPLETION = `
 # crctl — bash completion
 _crctl() {
     local cur prev cmds
-    cmds="start stop status attach detach link doctor setup generate update uninstall"
+    cmds="start stop status attach detach link restore service doctor setup generate update uninstall"
     COMPREPLY=()
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
@@ -50,6 +53,9 @@ _crctl() {
             ;;
         generate)
             COMPREPLY=( $(compgen -W "bash fish zsh" -- "\${cur}") )
+            ;;
+        service)
+            COMPREPLY=( $(compgen -W "install uninstall status" -- "\${cur}") )
             ;;
         stop|status)
             COMPREPLY=( $(compgen -W "-g --global" -- "\${cur}") )
@@ -75,6 +81,8 @@ _crctl() {
         'attach:Attach to tmux session'
         'detach:Detach from session without stopping it'
         'link:Print browser link'
+        'restore:Re-start all registered sessions'
+        'service:Manage the autostart service'
         'doctor:Check dependencies'
         'setup:Install shell completions'
         'generate:Generate completion script'
@@ -97,6 +105,8 @@ _crctl() {
                     _arguments '(-g --global)'{-g,--global}'[Apply to all sessions]' ;;
                 generate)
                     _arguments '1:shell:(bash fish zsh)' ;;
+                service)
+                    _arguments '1:action:(install uninstall status)' ;;
             esac ;;
     esac
 }

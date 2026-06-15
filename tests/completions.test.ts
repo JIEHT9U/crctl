@@ -13,6 +13,8 @@ const ALL_COMMANDS = [
   "status",
   "attach",
   "link",
+  "restore",
+  "service",
   "doctor",
   "setup",
   "generate",
@@ -46,6 +48,10 @@ describe.each([
 
   it("offers the supported shells for `generate`", () => {
     expect(script).toContain("bash fish zsh");
+  });
+
+  it("offers the `service` subcommands", () => {
+    expect(script).toContain("install uninstall status");
   });
 });
 
