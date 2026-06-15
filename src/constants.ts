@@ -16,6 +16,25 @@ export const SESSIONS_FILE = join(CONFIG_DIR, "sessions.json");
 /** GitHub repository (owner/name) used by `crctl update`. */
 export const REPO = "JIEHT9U/crctl";
 
+/** systemd user unit file (Linux) — restores sessions after login. */
+export const SYSTEMD_UNIT_NAME = "crctl.service";
+export const SYSTEMD_UNIT_PATH = join(
+  homedir(),
+  ".config",
+  "systemd",
+  "user",
+  SYSTEMD_UNIT_NAME
+);
+
+/** launchd LaunchAgent (macOS) — restores sessions after login. */
+export const LAUNCHD_LABEL = "com.crctl.restore";
+export const LAUNCHD_PLIST_PATH = join(
+  homedir(),
+  "Library",
+  "LaunchAgents",
+  `${LAUNCHD_LABEL}.plist`
+);
+
 /** How many times to poll the pane for the browser link. */
 export const LINK_WAIT_ATTEMPTS = 30;
 

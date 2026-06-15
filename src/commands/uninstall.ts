@@ -8,6 +8,7 @@ import {
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { CONFIG_DIR } from "../constants";
+import { serviceInstalled, uninstallService } from "../service";
 import { detectShell } from "../utils";
 
 export function cmdUninstall(): void {
@@ -15,6 +16,16 @@ export function cmdUninstall(): void {
   const shellName = detectShell(process.env.SHELL || "");
 
   console.log("🗑️  Uninstalling crctl...");
+
+  // 0. Remove the autostart service so it doesn't dangle after the binary goes.
+  if (serviceInstalled()) {
+    try {
+      uninstallService();
+      console.log("✅ Autostart service removed");
+    } catch {
+      console.log("⚠️  Could not remove autostart service");
+    }
+  }
 
   // 1. Remove binary
   try {

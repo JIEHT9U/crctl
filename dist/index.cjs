@@ -3051,6 +3051,21 @@ var SESSION_PREFIX = "claude-rc";
 var CONFIG_DIR = process.platform === "darwin" ? (0, import_node_path.join)((0, import_node_os.homedir)(), "Library", "Application Support", "crctl") : (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "crctl");
 var SESSIONS_FILE = (0, import_node_path.join)(CONFIG_DIR, "sessions.json");
 var REPO = "JIEHT9U/crctl";
+var SYSTEMD_UNIT_NAME = "crctl.service";
+var SYSTEMD_UNIT_PATH = (0, import_node_path.join)(
+  (0, import_node_os.homedir)(),
+  ".config",
+  "systemd",
+  "user",
+  SYSTEMD_UNIT_NAME
+);
+var LAUNCHD_LABEL = "com.crctl.restore";
+var LAUNCHD_PLIST_PATH = (0, import_node_path.join)(
+  (0, import_node_os.homedir)(),
+  "Library",
+  "LaunchAgents",
+  `${LAUNCHD_LABEL}.plist`
+);
 var LINK_WAIT_ATTEMPTS = 30;
 var LINK_WAIT_INTERVAL_MS = 500;
 
@@ -3180,31 +3195,18 @@ function detectShell(shellEnv) {
 }
 
 // src/commands/start.ts
-function cmdStart(options = {}) {
-  const cwd = process.cwd();
+function startSession(cwd, spawnMode) {
   const name = sessionName(cwd);
   if (sessionExists(name)) {
-    const entry = loadSessions().sessions[cwd];
-    console.log(`\u26A0\uFE0F  Session already active for ${cwd}`);
-    if (entry?.link) {
-      console.log(`   \u{1F517} ${entry.link}`);
-    }
-    console.log(`   Connect via: crctl attach`);
-    return;
+    return {
+      status: "already-running",
+      link: loadSessions().sessions[cwd]?.link ?? null
+    };
   }
-  const spawnMode = options.spawn ?? "same-dir";
   const claudeArgs = ["claude", "remote-control", `--spawn=${spawnMode}`];
-  console.log(`\u{1F680} Starting Claude Code (remote-control)...`);
-  console.log(`   Directory: ${cwd}`);
-  console.log(`   Spawn mode: ${spawnMode}`);
   const result = newSession(name, cwd, claudeArgs);
   if (result.code !== 0) {
-    console.log(`\u274C Failed to start tmux session.`);
-    if (result.stderr) {
-      console.log(`   ${result.stderr}`);
-    }
-    console.log(`   Run: crctl doctor`);
-    process.exit(1);
+    return { status: "failed", link: null, stderr: result.stderr };
   }
   let link = null;
   for (let i = 0; i < LINK_WAIT_ATTEMPTS; i++) {
@@ -3215,6 +3217,33 @@ function cmdStart(options = {}) {
   const data = loadSessions();
   data.sessions[cwd] = { name, cwd, pids: [], link, spawn: spawnMode };
   saveSessions(data);
+  return { status: "started", link };
+}
+function cmdStart(options = {}) {
+  const cwd = process.cwd();
+  const spawnMode = options.spawn ?? "same-dir";
+  if (sessionExists(sessionName(cwd))) {
+    const entry = loadSessions().sessions[cwd];
+    console.log(`\u26A0\uFE0F  Session already active for ${cwd}`);
+    if (entry?.link) {
+      console.log(`   \u{1F517} ${entry.link}`);
+    }
+    console.log(`   Connect via: crctl attach`);
+    return;
+  }
+  console.log(`\u{1F680} Starting Claude Code (remote-control)...`);
+  console.log(`   Directory: ${cwd}`);
+  console.log(`   Spawn mode: ${spawnMode}`);
+  const result = startSession(cwd, spawnMode);
+  if (result.status === "failed") {
+    console.log(`\u274C Failed to start tmux session.`);
+    if (result.stderr) {
+      console.log(`   ${result.stderr}`);
+    }
+    console.log(`   Run: crctl doctor`);
+    process.exit(1);
+  }
+  const link = result.link;
   console.log("");
   if (link) {
     console.log("\u2705 Done!");
@@ -3229,6 +3258,224 @@ function cmdStart(options = {}) {
     console.log("   Connect to the session manually:");
     console.log(`   crctl attach`);
   }
+}
+
+// src/commands/restore.ts
+function cmdRestore() {
+  const entries = Object.values(loadSessions().sessions);
+  if (entries.length === 0) {
+    console.log("\u2139\uFE0F  No sessions to restore.");
+    return;
+  }
+  console.log(`\u{1F504} Restoring ${entries.length} session(s)...`);
+  let started = 0;
+  let skipped = 0;
+  let failed = 0;
+  for (const entry of entries) {
+    if (sessionExists(entry.name)) {
+      skipped++;
+      console.log(`   \u23ED\uFE0F  ${entry.cwd} (already running)`);
+      continue;
+    }
+    const result = startSession(entry.cwd, entry.spawn ?? "same-dir");
+    if (result.status === "started") {
+      started++;
+      console.log(`   \u2705 ${entry.cwd}`);
+    } else if (result.status === "already-running") {
+      skipped++;
+      console.log(`   \u23ED\uFE0F  ${entry.cwd} (already running)`);
+    } else {
+      failed++;
+      const reason = result.stderr ? ` \u2014 ${result.stderr}` : "";
+      console.log(`   \u274C ${entry.cwd}${reason}`);
+    }
+  }
+  console.log("");
+  console.log(`Done: ${started} started, ${skipped} skipped, ${failed} failed.`);
+}
+
+// src/service.ts
+var import_node_fs2 = require("fs");
+var import_node_os2 = require("os");
+var import_node_path3 = require("path");
+function serviceKind() {
+  if (process.platform === "linux") return "systemd";
+  if (process.platform === "darwin") return "launchd";
+  return "unsupported";
+}
+function execInfo() {
+  return { node: process.execPath, script: (0, import_node_path3.resolve)(process.argv[1]) };
+}
+function servicePath(node, script) {
+  const dirs = [
+    (0, import_node_path3.dirname)(node),
+    (0, import_node_path3.dirname)(script),
+    "/usr/local/bin",
+    "/usr/bin",
+    "/bin",
+    (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".local", "bin")
+  ];
+  return [...new Set(dirs)].join(":");
+}
+function systemdUnitText(node, script) {
+  const path = servicePath(node, script);
+  return `[Unit]
+Description=crctl \u2014 restore Claude Code remote-control sessions after login
+Documentation=https://github.com/JIEHT9U/crctl
+After=graphical-session.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Environment=PATH=${path}
+ExecStart=${node} ${script} restore
+
+[Install]
+WantedBy=default.target
+`;
+}
+function launchdPlistText(node, script) {
+  const path = servicePath(node, script);
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>${LAUNCHD_LABEL}</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>${node}</string>
+    <string>${script}</string>
+    <string>restore</string>
+  </array>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>${path}</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/tmp/crctl.restore.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/crctl.restore.log</string>
+</dict>
+</plist>
+`;
+}
+function installService() {
+  const kind = serviceKind();
+  const { node, script } = execInfo();
+  const steps = [];
+  if (kind === "systemd") {
+    (0, import_node_fs2.mkdirSync)((0, import_node_path3.dirname)(SYSTEMD_UNIT_PATH), { recursive: true });
+    (0, import_node_fs2.writeFileSync)(SYSTEMD_UNIT_PATH, systemdUnitText(node, script));
+    steps.push(`Wrote unit: ${SYSTEMD_UNIT_PATH}`);
+    const reload = run("systemctl", ["--user", "daemon-reload"]);
+    const enable = run("systemctl", ["--user", "enable", SYSTEMD_UNIT_NAME]);
+    const ok = reload.code === 0 && enable.code === 0;
+    steps.push(ok ? "Enabled (starts on next login)" : "Failed to enable");
+    if (!ok && enable.stderr) steps.push(enable.stderr);
+    return { ok, path: SYSTEMD_UNIT_PATH, steps };
+  }
+  if (kind === "launchd") {
+    (0, import_node_fs2.mkdirSync)((0, import_node_path3.dirname)(LAUNCHD_PLIST_PATH), { recursive: true });
+    (0, import_node_fs2.writeFileSync)(LAUNCHD_PLIST_PATH, launchdPlistText(node, script));
+    steps.push(`Wrote LaunchAgent: ${LAUNCHD_PLIST_PATH}`);
+    run("launchctl", ["unload", LAUNCHD_PLIST_PATH]);
+    const load = run("launchctl", ["load", "-w", LAUNCHD_PLIST_PATH]);
+    const ok = load.code === 0;
+    steps.push(ok ? "Enabled (starts on next login)" : "Failed to enable");
+    if (!ok && load.stderr) steps.push(load.stderr);
+    return { ok, path: LAUNCHD_PLIST_PATH, steps };
+  }
+  return {
+    ok: false,
+    path: "",
+    steps: [`Autostart is not supported on platform "${process.platform}".`]
+  };
+}
+function uninstallService() {
+  const kind = serviceKind();
+  const steps = [];
+  if (kind === "systemd") {
+    if ((0, import_node_fs2.existsSync)(SYSTEMD_UNIT_PATH)) {
+      run("systemctl", ["--user", "disable", SYSTEMD_UNIT_NAME]);
+      (0, import_node_fs2.unlinkSync)(SYSTEMD_UNIT_PATH);
+      run("systemctl", ["--user", "daemon-reload"]);
+      steps.push(`Removed unit: ${SYSTEMD_UNIT_PATH}`);
+    } else {
+      steps.push("No service installed.");
+    }
+    return { ok: true, path: SYSTEMD_UNIT_PATH, steps };
+  }
+  if (kind === "launchd") {
+    if ((0, import_node_fs2.existsSync)(LAUNCHD_PLIST_PATH)) {
+      run("launchctl", ["unload", "-w", LAUNCHD_PLIST_PATH]);
+      (0, import_node_fs2.unlinkSync)(LAUNCHD_PLIST_PATH);
+      steps.push(`Removed LaunchAgent: ${LAUNCHD_PLIST_PATH}`);
+    } else {
+      steps.push("No service installed.");
+    }
+    return { ok: true, path: LAUNCHD_PLIST_PATH, steps };
+  }
+  return {
+    ok: false,
+    path: "",
+    steps: [`Autostart is not supported on platform "${process.platform}".`]
+  };
+}
+function serviceInstalled() {
+  const kind = serviceKind();
+  if (kind === "systemd") return (0, import_node_fs2.existsSync)(SYSTEMD_UNIT_PATH);
+  if (kind === "launchd") return (0, import_node_fs2.existsSync)(LAUNCHD_PLIST_PATH);
+  return false;
+}
+
+// src/commands/service.ts
+function cmdServiceInstall() {
+  if (serviceKind() === "unsupported") {
+    console.log(`\u274C Autostart is not supported on "${process.platform}".`);
+    process.exit(1);
+  }
+  console.log("\u2699\uFE0F  Installing crctl autostart service...");
+  const result = installService();
+  for (const step of result.steps) {
+    console.log(`   ${step}`);
+  }
+  if (!result.ok) {
+    console.log("");
+    console.log("\u274C Could not enable the service.");
+    process.exit(1);
+  }
+  console.log("");
+  console.log("\u2705 Done! Your sessions will be restored after each login.");
+  console.log("   Restore now without rebooting: crctl restore");
+}
+function cmdServiceUninstall() {
+  if (serviceKind() === "unsupported") {
+    console.log(`\u274C Autostart is not supported on "${process.platform}".`);
+    process.exit(1);
+  }
+  console.log("\u{1F5D1}\uFE0F  Removing crctl autostart service...");
+  const result = uninstallService();
+  for (const step of result.steps) {
+    console.log(`   ${step}`);
+  }
+  console.log("");
+  console.log("\u2705 Autostart disabled.");
+}
+function cmdServiceStatus() {
+  const kind = serviceKind();
+  if (kind === "unsupported") {
+    console.log(`Autostart is not supported on "${process.platform}".`);
+    return;
+  }
+  const installed = serviceInstalled();
+  console.log(`Init system: ${kind}`);
+  console.log(
+    installed ? "Status: \u2705 installed (sessions restore on login)" : "Status: \u26AA not installed \u2014 run: crctl service install"
+  );
 }
 
 // src/processes.ts
@@ -3509,9 +3756,9 @@ function cmdDoctor() {
 }
 
 // src/commands/completions.ts
-var import_node_fs2 = require("fs");
-var import_node_os2 = require("os");
-var import_node_path3 = require("path");
+var import_node_fs3 = require("fs");
+var import_node_os3 = require("os");
+var import_node_path4 = require("path");
 
 // src/completions.ts
 var FISH_COMPLETION = `
@@ -3645,11 +3892,11 @@ function cmdSetup() {
   console.log(`\u{1F41A} Detected shell: ${shellName} (${shell})`);
   const compScript = getCompletionScript(shellName);
   if (shellName === "fish") {
-    const completionsDir = (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".config", "fish", "completions");
-    const targetPath = (0, import_node_path3.join)(completionsDir, "crctl.fish");
+    const completionsDir = (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".config", "fish", "completions");
+    const targetPath = (0, import_node_path4.join)(completionsDir, "crctl.fish");
     try {
-      (0, import_node_fs2.mkdirSync)(completionsDir, { recursive: true });
-      (0, import_node_fs2.writeFileSync)(targetPath, compScript);
+      (0, import_node_fs3.mkdirSync)(completionsDir, { recursive: true });
+      (0, import_node_fs3.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion installed: ${targetPath}`);
       console.log("");
       console.log("   Restart your terminal or run:");
@@ -3662,9 +3909,9 @@ function cmdSetup() {
       console.log(`   crctl generate fish > ${targetPath}`);
     }
   } else if (shellName === "bash") {
-    const targetPath = (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".bash_completion_crctl");
+    const targetPath = (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".bash_completion_crctl");
     try {
-      (0, import_node_fs2.writeFileSync)(targetPath, compScript);
+      (0, import_node_fs3.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion script: ${targetPath}`);
       console.log("");
       console.log("   Add to ~/.bashrc:");
@@ -3677,11 +3924,11 @@ function cmdSetup() {
       console.log(`   echo 'source ${targetPath}' >> ~/.bashrc`);
     }
   } else {
-    const zshDir = (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl");
-    const targetPath = (0, import_node_path3.join)(zshDir, "_crctl");
+    const zshDir = (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl");
+    const targetPath = (0, import_node_path4.join)(zshDir, "_crctl");
     try {
-      (0, import_node_fs2.mkdirSync)(zshDir, { recursive: true });
-      (0, import_node_fs2.writeFileSync)(targetPath, compScript);
+      (0, import_node_fs3.mkdirSync)(zshDir, { recursive: true });
+      (0, import_node_fs3.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion script: ${targetPath}`);
       console.log("");
       console.log("   Add 'crctl' to plugins in ~/.zshrc");
@@ -3742,33 +3989,41 @@ function cmdUpdate(currentVersion) {
 }
 
 // src/commands/uninstall.ts
-var import_node_fs3 = require("fs");
-var import_node_os3 = require("os");
-var import_node_path4 = require("path");
+var import_node_fs4 = require("fs");
+var import_node_os4 = require("os");
+var import_node_path5 = require("path");
 function cmdUninstall() {
   const binaryPath = process.argv[1];
   const shellName = detectShell(process.env.SHELL || "");
   console.log("\u{1F5D1}\uFE0F  Uninstalling crctl...");
+  if (serviceInstalled()) {
+    try {
+      uninstallService();
+      console.log("\u2705 Autostart service removed");
+    } catch {
+      console.log("\u26A0\uFE0F  Could not remove autostart service");
+    }
+  }
   try {
-    (0, import_node_fs3.unlinkSync)(binaryPath);
+    (0, import_node_fs4.unlinkSync)(binaryPath);
     console.log(`\u2705 Binary removed: ${binaryPath}`);
   } catch {
     console.log(`\u26A0\uFE0F  Could not remove binary: ${binaryPath}`);
   }
   const configs = {
-    fish: (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".config", "fish", "config.fish"),
-    bash: (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".bashrc"),
-    zsh: (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".zshrc")
+    fish: (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".config", "fish", "config.fish"),
+    bash: (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".bashrc"),
+    zsh: (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".zshrc")
   };
   const configPath = configs[shellName];
-  if (configPath && (0, import_node_fs3.existsSync)(configPath)) {
+  if (configPath && (0, import_node_fs4.existsSync)(configPath)) {
     try {
-      const originalLines = (0, import_node_fs3.readFileSync)(configPath, "utf8").split("\n");
+      const originalLines = (0, import_node_fs4.readFileSync)(configPath, "utf8").split("\n");
       const cleanedLines = originalLines.filter(
         (line) => !line.includes("crctl")
       );
       if (cleanedLines.length < originalLines.length) {
-        (0, import_node_fs3.writeFileSync)(configPath, cleanedLines.join("\n"));
+        (0, import_node_fs4.writeFileSync)(configPath, cleanedLines.join("\n"));
         console.log(`\u2705 Cleaned crctl entries from ${configPath}`);
       }
     } catch {
@@ -3776,22 +4031,22 @@ function cmdUninstall() {
     }
   }
   const completionPaths = [
-    (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".config", "fish", "completions", "crctl.fish"),
-    (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".bash_completion_crctl"),
-    (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl", "_crctl")
+    (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".config", "fish", "completions", "crctl.fish"),
+    (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".bash_completion_crctl"),
+    (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl", "_crctl")
   ];
   for (const path of completionPaths) {
-    if ((0, import_node_fs3.existsSync)(path)) {
+    if ((0, import_node_fs4.existsSync)(path)) {
       try {
-        (0, import_node_fs3.unlinkSync)(path);
+        (0, import_node_fs4.unlinkSync)(path);
         console.log(`\u2705 Removed completion: ${path}`);
       } catch {
       }
     }
   }
-  if ((0, import_node_fs3.existsSync)(CONFIG_DIR)) {
+  if ((0, import_node_fs4.existsSync)(CONFIG_DIR)) {
     try {
-      (0, import_node_fs3.rmSync)(CONFIG_DIR, { recursive: true, force: true });
+      (0, import_node_fs4.rmSync)(CONFIG_DIR, { recursive: true, force: true });
       console.log(`\u2705 Removed config: ${CONFIG_DIR}`);
     } catch {
       console.log(`\u26A0\uFE0F  Could not remove config: ${CONFIG_DIR}`);
@@ -3817,6 +4072,11 @@ program2.command("status").description("Show Claude Code session status").option
 program2.command("attach").description("Attach to the current directory's tmux session").action(cmdAttach);
 program2.command("detach").description("Detach from session without stopping it (alias: Ctrl+B D inside tmux)").action(cmdDetach);
 program2.command("link").description("Print the browser link for the current directory's session").action(cmdLink);
+program2.command("restore").description("Re-start all registered sessions that aren't running (used by the autostart service)").action(cmdRestore);
+var service = program2.command("service").description("Manage the autostart service (restore sessions after login)");
+service.command("install").description("Install and enable the autostart service").action(cmdServiceInstall);
+service.command("uninstall").description("Disable and remove the autostart service").action(cmdServiceUninstall);
+service.command("status").description("Show whether the autostart service is installed").action(cmdServiceStatus);
 program2.command("doctor").description("Check all dependencies and show install instructions").action(cmdDoctor);
 program2.command("generate").description("Generate shell completion script (bash|fish|zsh)").argument("<shell>", "Shell type: bash, fish, or zsh").action(cmdGenerate);
 program2.command("setup").description("Auto-detect your shell and install completions").action(cmdSetup);

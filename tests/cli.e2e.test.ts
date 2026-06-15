@@ -41,6 +41,8 @@ describe("crctl binary", () => {
       "attach",
       "detach",
       "link",
+      "restore",
+      "service",
       "doctor",
       "generate",
       "setup",
@@ -49,6 +51,19 @@ describe("crctl binary", () => {
     ]) {
       expect(help).toContain(cmd);
     }
+  });
+
+  it("documents the service subcommands", () => {
+    const help = crctl("service --help");
+    expect(help).toContain("install");
+    expect(help).toContain("uninstall");
+    expect(help).toContain("status");
+  });
+
+  it("reports autostart status without mutating anything", () => {
+    // Read-only on every platform: just inspects whether the unit file exists.
+    const out = crctl("service status");
+    expect(out).toMatch(/Init system:|not supported/);
   });
 
   it("documents the --global flag for stop and status", () => {

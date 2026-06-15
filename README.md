@@ -73,6 +73,8 @@ Commands:
   status [options]        📊 Show session status
   attach                  🔌 Attach to tmux session
   link                    🔗 Print browser link
+  restore                 🔄 Re-start all registered sessions
+  service <cmd>           ⚙️  Manage autostart (install|uninstall|status)
   doctor                  🩺 Check dependencies
   setup                   🐚 Install shell completions
   generate <shell>        📝 Generate completion script
@@ -85,6 +87,35 @@ crctl stop --global        🛑 Stop ALL sessions
 crctl status --global      🌍 Show all sessions
 crctl status -g            🌍 Short form
 ```
+
+---
+
+## 🔌 Autostart after reboot
+
+crctl can re-spawn every session you had running the next time you log in, so a
+reboot doesn't mean re-launching each project by hand.
+
+```bash
+# Install + enable the autostart service (systemd on Linux, launchd on macOS)
+crctl service install
+
+# Check whether it's enabled
+crctl service status
+
+# Disable it
+crctl service uninstall
+```
+
+On login the service runs `crctl restore`, which re-starts each session in the
+registry that isn't already running. You can run it any time without rebooting:
+
+```bash
+crctl restore
+```
+
+> Sessions start **after you log in** — no root or `enable-linger` required. The
+> registry (`sessions.json`) is the list of what gets restored; whatever was
+> running when you last used `crctl start` comes back.
 
 ---
 

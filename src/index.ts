@@ -5,6 +5,10 @@ import {
   cmdDoctor,
   cmdGenerate,
   cmdLink,
+  cmdRestore,
+  cmdServiceInstall,
+  cmdServiceStatus,
+  cmdServiceUninstall,
   cmdSetup,
   cmdStart,
   cmdStatus,
@@ -60,6 +64,30 @@ program
   .command("link")
   .description("Print the browser link for the current directory's session")
   .action(cmdLink);
+
+program
+  .command("restore")
+  .description("Re-start all registered sessions that aren't running (used by the autostart service)")
+  .action(cmdRestore);
+
+const service = program
+  .command("service")
+  .description("Manage the autostart service (restore sessions after login)");
+
+service
+  .command("install")
+  .description("Install and enable the autostart service")
+  .action(cmdServiceInstall);
+
+service
+  .command("uninstall")
+  .description("Disable and remove the autostart service")
+  .action(cmdServiceUninstall);
+
+service
+  .command("status")
+  .description("Show whether the autostart service is installed")
+  .action(cmdServiceStatus);
 
 program
   .command("doctor")

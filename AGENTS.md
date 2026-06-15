@@ -26,6 +26,7 @@ src/
 ├── registry.ts     # sessions.json load/save (path injectable for tests)
 ├── tmux.ts         # every tmux invocation lives here
 ├── processes.ts    # ps-based discovery + killing of claude processes
+├── service.ts      # autostart: systemd (Linux) / launchd (macOS) unit logic
 ├── completions.ts  # bash/fish/zsh completion script texts
 └── commands/       # one file per CLI command (start, stop, status, …)
 ```
@@ -35,6 +36,9 @@ Conventions:
 - **All tmux calls go through `src/tmux.ts`** — never call `spawnSync("tmux", …)`
   from a command directly. Interactive commands (attach) must use
   `stdio: "inherit"`; everything else captures output via `run()`.
+- **All `systemctl`/`launchctl` calls go through `src/service.ts`**, the same
+  way tmux is funnelled through `tmux.ts`. Unit/plist *text* is built by pure
+  exported functions there so it can be unit-tested without touching disk.
 - **Commands contain orchestration + console output only.** Parsing and other
   pure logic belongs in `utils.ts` / `processes.ts` / `tmux.ts` so it can be
   unit-tested without mocks.
