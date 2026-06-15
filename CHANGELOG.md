@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.8.1](https://github.com/JIEHT9U/crctl/compare/v0.8.0...v0.8.1) (2026-06-15)
+
+### Bug Fixes
+
+* add restore and service commands to shell completions ([f1a625b](https://github.com/JIEHT9U/crctl/commit/f1a625b9b40272b803e08c0cc3d7f237a7fffd34))
+
 ## [0.8.0](https://github.com/JIEHT9U/crctl/compare/v0.7.0...v0.8.0) (2026-06-15)
 
 ### Features
