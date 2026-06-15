@@ -1,3 +1,4 @@
+import { trustDirectory } from "../claude";
 import { LINK_WAIT_ATTEMPTS, LINK_WAIT_INTERVAL_MS } from "../constants";
 import { loadSessions, saveSessions } from "../registry";
 import { getPaneContent, newSession, sessionExists } from "../tmux";
@@ -28,6 +29,11 @@ export function startSession(cwd: string, spawnMode: SpawnMode): StartResult {
       link: loadSessions().sessions[cwd]?.link ?? null,
     };
   }
+
+  // Pre-trust the directory so `claude` doesn't block on the workspace-trust
+  // dialog — that prompt would hang invisibly in the detached tmux session and
+  // the browser link would never appear.
+  trustDirectory(cwd);
 
   const claudeArgs = ["claude", "remote-control", `--spawn=${spawnMode}`];
   const result = newSession(name, cwd, claudeArgs);

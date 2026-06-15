@@ -13,6 +13,13 @@ export const CONFIG_DIR =
 /** Session registry file. */
 export const SESSIONS_FILE = join(CONFIG_DIR, "sessions.json");
 
+/**
+ * Claude Code's global config (`~/.claude.json`). crctl reads/writes the
+ * per-project `hasTrustDialogAccepted` flag here so a detached `claude
+ * remote-control` doesn't block on the workspace-trust dialog.
+ */
+export const CLAUDE_CONFIG_FILE = join(homedir(), ".claude.json");
+
 /** GitHub repository (owner/name) used by `crctl update`. */
 export const REPO = "JIEHT9U/crctl";
 

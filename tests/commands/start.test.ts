@@ -9,6 +9,7 @@ vi.mock("../../src/registry", () => ({
   loadSessions: vi.fn(),
   saveSessions: vi.fn(),
 }));
+vi.mock("../../src/claude", () => ({ trustDirectory: vi.fn() }));
 vi.mock("../../src/utils", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/utils")>()),
   sleep: vi.fn(),
