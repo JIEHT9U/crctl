@@ -12,6 +12,8 @@ export interface SessionEntry {
   link?: string | null;
   /** Spawn mode passed to `claude remote-control --spawn`. */
   spawn?: "same-dir" | "worktree";
+  /** Extra flags forwarded verbatim to `claude remote-control` (after `--`). */
+  args?: string[];
 }
 
 /** Shape of the on-disk session registry (`sessions.json`). */

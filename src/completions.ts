@@ -34,6 +34,7 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove crctl 
 complete -c crctl -f -s V -l version -d 'Version'
 complete -c crctl -f -s h -l help -d 'Help'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) stop status' -s g -l global -d 'Apply to all sessions'
+complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) start' -l spawn -x -a 'same-dir worktree' -d 'Spawn mode'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) generate' -a 'bash fish zsh' -d 'Shell type'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) service' -a 'install uninstall status' -d 'Service action'
 `;
@@ -59,6 +60,12 @@ _crctl() {
             ;;
         stop|status)
             COMPREPLY=( $(compgen -W "-g --global" -- "\${cur}") )
+            ;;
+        start)
+            COMPREPLY=( $(compgen -W "--spawn" -- "\${cur}") )
+            ;;
+        --spawn)
+            COMPREPLY=( $(compgen -W "same-dir worktree" -- "\${cur}") )
             ;;
         *)
             COMPREPLY=( $(compgen -W "-h --help -V --version" -- "\${cur}") )
@@ -103,6 +110,8 @@ _crctl() {
             case $words[1] in
                 stop|status)
                     _arguments '(-g --global)'{-g,--global}'[Apply to all sessions]' ;;
+                start)
+                    _arguments '--spawn[Spawn mode]:mode:(same-dir worktree)' ;;
                 generate)
                     _arguments '1:shell:(bash fish zsh)' ;;
                 service)

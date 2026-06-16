@@ -2,6 +2,7 @@ import { trustDirectory } from "../claude";
 import { LINK_WAIT_ATTEMPTS, LINK_WAIT_INTERVAL_MS } from "../constants";
 import { loadSessions, saveSessions } from "../registry";
 import { getPaneContent, newSession, sessionExists } from "../tmux";
+import type { SessionEntry } from "../types";
 import { extractLink, sessionName, sleep } from "../utils";
 
 export type SpawnMode = "same-dir" | "worktree";
@@ -19,8 +20,16 @@ export interface StartResult {
  * Spawn (or detect) a remote-control session for `cwd` and persist it in the
  * registry. Pure orchestration — no console output — so it can be reused by
  * both `crctl start` and `crctl restore` and unit-tested against mocks.
+ *
+ * `extraArgs` are appended verbatim to the `claude remote-control` invocation
+ * (e.g. `--model`, `--dangerously-skip-permissions`) and persisted so that
+ * `restore`/autostart bring the session back with the same flags.
  */
-export function startSession(cwd: string, spawnMode: SpawnMode): StartResult {
+export function startSession(
+  cwd: string,
+  spawnMode: SpawnMode,
+  extraArgs: string[] = []
+): StartResult {
   const name = sessionName(cwd);
 
   if (sessionExists(name)) {
@@ -35,7 +44,12 @@ export function startSession(cwd: string, spawnMode: SpawnMode): StartResult {
   // the browser link would never appear.
   trustDirectory(cwd);
 
-  const claudeArgs = ["claude", "remote-control", `--spawn=${spawnMode}`];
+  const claudeArgs = [
+    "claude",
+    "remote-control",
+    `--spawn=${spawnMode}`,
+    ...extraArgs,
+  ];
   const result = newSession(name, cwd, claudeArgs);
   if (result.code !== 0) {
     return { status: "failed", link: null, stderr: result.stderr };
@@ -50,13 +64,20 @@ export function startSession(cwd: string, spawnMode: SpawnMode): StartResult {
   }
 
   const data = loadSessions();
-  data.sessions[cwd] = { name, cwd, pids: [], link, spawn: spawnMode };
+  const entry: SessionEntry = { name, cwd, pids: [], link, spawn: spawnMode };
+  // Only record `args` when present — keeps the registry tidy and the common
+  // (flag-less) case byte-for-byte identical to before.
+  if (extraArgs.length > 0) entry.args = extraArgs;
+  data.sessions[cwd] = entry;
   saveSessions(data);
 
   return { status: "started", link };
 }
 
-export function cmdStart(options: { spawn?: SpawnMode } = {}): void {
+export function cmdStart(
+  claudeArgs: string[] = [],
+  options: { spawn?: SpawnMode } = {}
+): void {
   const cwd = process.cwd();
   const spawnMode: SpawnMode = options.spawn ?? "same-dir";
 
@@ -73,8 +94,11 @@ export function cmdStart(options: { spawn?: SpawnMode } = {}): void {
   console.log(`🚀 Starting Claude Code (remote-control)...`);
   console.log(`   Directory: ${cwd}`);
   console.log(`   Spawn mode: ${spawnMode}`);
+  if (claudeArgs.length > 0) {
+    console.log(`   Extra flags: ${claudeArgs.join(" ")}`);
+  }
 
-  const result = startSession(cwd, spawnMode);
+  const result = startSession(cwd, spawnMode, claudeArgs);
   if (result.status === "failed") {
     console.log(`❌ Failed to start tmux session.`);
     if (result.stderr) {

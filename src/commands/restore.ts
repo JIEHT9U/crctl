@@ -27,7 +27,11 @@ export function cmdRestore(): void {
       continue;
     }
 
-    const result = startSession(entry.cwd, entry.spawn ?? "same-dir");
+    const result = startSession(
+      entry.cwd,
+      entry.spawn ?? "same-dir",
+      entry.args ?? []
+    );
     if (result.status === "started") {
       started++;
       console.log(`   ✅ ${entry.cwd}`);

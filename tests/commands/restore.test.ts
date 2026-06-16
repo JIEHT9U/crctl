@@ -22,12 +22,17 @@ import { captureLog } from "../helpers";
 
 const A = "/home/user/project-a";
 const B = "/home/user/project-b";
-const entry = (cwd: string, spawn?: "same-dir" | "worktree") => ({
+const entry = (
+  cwd: string,
+  spawn?: "same-dir" | "worktree",
+  args?: string[]
+) => ({
   name: `claude-rc-${cwd.length}`, // unique-enough fake name per cwd
   cwd,
   pids: [],
   link: null,
   spawn,
+  args,
 });
 
 beforeEach(() => {
@@ -73,6 +78,20 @@ describe("cmdRestore", () => {
 
     expect(newSession).toHaveBeenCalledWith(expect.any(String), A, [
       "claude", "remote-control", "--spawn=same-dir",
+    ]);
+  });
+
+  it("re-applies persisted extra flags when restoring", () => {
+    vi.mocked(loadSessions).mockReturnValue({
+      sessions: { [A]: entry(A, "same-dir", ["--model", "opus"]) },
+    });
+    vi.mocked(sessionExists).mockReturnValue(false);
+    captureLog();
+
+    cmdRestore();
+
+    expect(newSession).toHaveBeenCalledWith(expect.any(String), A, [
+      "claude", "remote-control", "--spawn=same-dir", "--model", "opus",
     ]);
   });
 

@@ -36,6 +36,23 @@ program
     "Spawn mode: same-dir (default) or worktree (isolated git worktree per session)",
     "same-dir"
   )
+  .argument(
+    "[claudeArgs...]",
+    "Extra flags forwarded verbatim to `claude remote-control` (put them after `--`)"
+  )
+  .addHelpText(
+    "after",
+    `
+Examples:
+  crctl start
+  crctl start --spawn=worktree
+  crctl start -- --model opus --dangerously-skip-permissions
+  crctl start --spawn=worktree -- --model opus
+
+Anything after \`--\` is passed straight to \`claude remote-control\` and is
+remembered, so \`crctl restore\` / autostart bring the session back with the
+same flags.`
+  )
   .action(cmdStart);
 
 program

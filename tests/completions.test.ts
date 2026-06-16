@@ -53,6 +53,11 @@ describe.each([
   it("offers the `service` subcommands", () => {
     expect(script).toContain("install uninstall status");
   });
+
+  it("offers `--spawn` values for `start`", () => {
+    expect(script).toContain("spawn");
+    expect(script).toContain("same-dir worktree");
+  });
 });
 
 describe("fish completion", () => {

@@ -86,7 +86,21 @@ Commands:
 crctl stop --global        🛑 Stop ALL sessions
 crctl status --global      🌍 Show all sessions
 crctl status -g            🌍 Short form
+crctl start --spawn=worktree   🌿 Isolated git worktree per session
 ```
+
+### Forwarding flags to `claude`
+
+Put anything after `--` and it's passed straight to `claude remote-control`:
+
+```bash
+crctl start -- --model opus
+crctl start -- --dangerously-skip-permissions
+crctl start --spawn=worktree -- --model opus   # crctl's own flags stay left of --
+```
+
+The forwarded flags are remembered, so `crctl restore` (and autostart) bring the
+session back with exactly the same flags.
 
 ---
 

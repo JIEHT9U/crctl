@@ -67,7 +67,7 @@ describe("cmdStart", () => {
     vi.mocked(getPaneContent).mockReturnValue(LINK);
     captureLog();
 
-    cmdStart({ spawn: "worktree" });
+    cmdStart([], { spawn: "worktree" });
 
     expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
       "claude", "remote-control", "--spawn=worktree",
@@ -79,7 +79,7 @@ describe("cmdStart", () => {
     vi.mocked(getPaneContent).mockReturnValue(LINK);
     captureLog();
 
-    cmdStart({ spawn: "worktree" });
+    cmdStart([], { spawn: "worktree" });
 
     expect(saveSessions).toHaveBeenCalledWith({
       sessions: {
@@ -102,6 +102,55 @@ describe("cmdStart", () => {
     });
     expect(log.output()).toContain(LINK);
     expect(log.output()).toContain("✅ Done!");
+  });
+
+  it("forwards extra flags verbatim to claude after --spawn", () => {
+    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+    captureLog();
+
+    cmdStart(["--model", "opus", "--dangerously-skip-permissions"]);
+
+    expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
+      "claude",
+      "remote-control",
+      "--spawn=same-dir",
+      "--model",
+      "opus",
+      "--dangerously-skip-permissions",
+    ]);
+  });
+
+  it("persists extra flags so restore can reuse them", () => {
+    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+    captureLog();
+
+    cmdStart(["--model", "opus"], { spawn: "worktree" });
+
+    expect(saveSessions).toHaveBeenCalledWith({
+      sessions: {
+        [CWD]: {
+          name: NAME,
+          cwd: CWD,
+          pids: [],
+          link: LINK,
+          spawn: "worktree",
+          args: ["--model", "opus"],
+        },
+      },
+    });
+  });
+
+  it("omits the args key from the registry when no extra flags are passed", () => {
+    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+    captureLog();
+
+    cmdStart();
+
+    const saved = vi.mocked(saveSessions).mock.calls[0][0];
+    expect(saved.sessions[CWD]).not.toHaveProperty("args");
   });
 
   it("exits with an error when tmux fails to start", () => {

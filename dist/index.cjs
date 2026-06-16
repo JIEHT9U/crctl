@@ -3242,7 +3242,7 @@ function detectShell(shellEnv) {
 }
 
 // src/commands/start.ts
-function startSession(cwd, spawnMode) {
+function startSession(cwd, spawnMode, extraArgs = []) {
   const name = sessionName(cwd);
   if (sessionExists(name)) {
     return {
@@ -3251,7 +3251,12 @@ function startSession(cwd, spawnMode) {
     };
   }
   trustDirectory(cwd);
-  const claudeArgs = ["claude", "remote-control", `--spawn=${spawnMode}`];
+  const claudeArgs = [
+    "claude",
+    "remote-control",
+    `--spawn=${spawnMode}`,
+    ...extraArgs
+  ];
   const result = newSession(name, cwd, claudeArgs);
   if (result.code !== 0) {
     return { status: "failed", link: null, stderr: result.stderr };
@@ -3263,11 +3268,13 @@ function startSession(cwd, spawnMode) {
     if (link) break;
   }
   const data = loadSessions();
-  data.sessions[cwd] = { name, cwd, pids: [], link, spawn: spawnMode };
+  const entry = { name, cwd, pids: [], link, spawn: spawnMode };
+  if (extraArgs.length > 0) entry.args = extraArgs;
+  data.sessions[cwd] = entry;
   saveSessions(data);
   return { status: "started", link };
 }
-function cmdStart(options = {}) {
+function cmdStart(claudeArgs = [], options = {}) {
   const cwd = process.cwd();
   const spawnMode = options.spawn ?? "same-dir";
   if (sessionExists(sessionName(cwd))) {
@@ -3282,7 +3289,10 @@ function cmdStart(options = {}) {
   console.log(`\u{1F680} Starting Claude Code (remote-control)...`);
   console.log(`   Directory: ${cwd}`);
   console.log(`   Spawn mode: ${spawnMode}`);
-  const result = startSession(cwd, spawnMode);
+  if (claudeArgs.length > 0) {
+    console.log(`   Extra flags: ${claudeArgs.join(" ")}`);
+  }
+  const result = startSession(cwd, spawnMode, claudeArgs);
   if (result.status === "failed") {
     console.log(`\u274C Failed to start tmux session.`);
     if (result.stderr) {
@@ -3325,7 +3335,11 @@ function cmdRestore() {
       console.log(`   \u23ED\uFE0F  ${entry.cwd} (already running)`);
       continue;
     }
-    const result = startSession(entry.cwd, entry.spawn ?? "same-dir");
+    const result = startSession(
+      entry.cwd,
+      entry.spawn ?? "same-dir",
+      entry.args ?? []
+    );
     if (result.status === "started") {
       started++;
       console.log(`   \u2705 ${entry.cwd}`);
@@ -3843,6 +3857,7 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove crctl 
 complete -c crctl -f -s V -l version -d 'Version'
 complete -c crctl -f -s h -l help -d 'Help'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) stop status' -s g -l global -d 'Apply to all sessions'
+complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) start' -l spawn -x -a 'same-dir worktree' -d 'Spawn mode'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) generate' -a 'bash fish zsh' -d 'Shell type'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) service' -a 'install uninstall status' -d 'Service action'
 `;
@@ -3867,6 +3882,12 @@ _crctl() {
             ;;
         stop|status)
             COMPREPLY=( $(compgen -W "-g --global" -- "\${cur}") )
+            ;;
+        start)
+            COMPREPLY=( $(compgen -W "--spawn" -- "\${cur}") )
+            ;;
+        --spawn)
+            COMPREPLY=( $(compgen -W "same-dir worktree" -- "\${cur}") )
             ;;
         *)
             COMPREPLY=( $(compgen -W "-h --help -V --version" -- "\${cur}") )
@@ -3910,6 +3931,8 @@ _crctl() {
             case $words[1] in
                 stop|status)
                     _arguments '(-g --global)'{-g,--global}'[Apply to all sessions]' ;;
+                start)
+                    _arguments '--spawn[Spawn mode]:mode:(same-dir worktree)' ;;
                 generate)
                     _arguments '1:shell:(bash fish zsh)' ;;
                 service)
@@ -4124,6 +4147,21 @@ program2.command("start").description("Start Claude Code in remote-control mode 
   "--spawn <mode>",
   "Spawn mode: same-dir (default) or worktree (isolated git worktree per session)",
   "same-dir"
+).argument(
+  "[claudeArgs...]",
+  "Extra flags forwarded verbatim to `claude remote-control` (put them after `--`)"
+).addHelpText(
+  "after",
+  `
+Examples:
+  crctl start
+  crctl start --spawn=worktree
+  crctl start -- --model opus --dangerously-skip-permissions
+  crctl start --spawn=worktree -- --model opus
+
+Anything after \`--\` is passed straight to \`claude remote-control\` and is
+remembered, so \`crctl restore\` / autostart bring the session back with the
+same flags.`
 ).action(cmdStart);
 program2.command("stop").description("Stop Claude Code session (current directory)").option("-g, --global", "Stop ALL sessions in all directories").action(cmdStop);
 program2.command("status").description("Show Claude Code session status").option("-g, --global", "Show all sessions in all directories").action(cmdStatus);
