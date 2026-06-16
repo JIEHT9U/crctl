@@ -9,7 +9,10 @@ vi.mock("../../src/registry", () => ({
   loadSessions: vi.fn(),
   saveSessions: vi.fn(),
 }));
-vi.mock("../../src/claude", () => ({ trustDirectory: vi.fn() }));
+vi.mock("../../src/claude", () => ({
+  trustDirectory: vi.fn(),
+  ensureRemoteControlEnabled: vi.fn(),
+}));
 vi.mock("../../src/utils", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/utils")>()),
   sleep: vi.fn(),
@@ -20,6 +23,7 @@ vi.mock("node:fs", () => ({ existsSync: vi.fn() }));
 vi.mock("../../src/commands/update", () => ({ checkUpdateAvailable: vi.fn() }));
 
 import { existsSync } from "node:fs";
+import { ensureRemoteControlEnabled } from "../../src/claude";
 import { cmdStart } from "../../src/commands/start";
 import { checkUpdateAvailable } from "../../src/commands/update";
 import { loadSessions, saveSessions } from "../../src/registry";
@@ -40,6 +44,7 @@ beforeEach(() => {
   vi.mocked(getPaneContent).mockReturnValue("");
   vi.mocked(existsSync).mockReturnValue(true);
   vi.mocked(checkUpdateAvailable).mockReturnValue(null);
+  vi.mocked(ensureRemoteControlEnabled).mockReturnValue(false);
 });
 
 describe("cmdStart", () => {
@@ -248,6 +253,21 @@ describe("cmdStart", () => {
     expect(() => cmdStart()).toThrow("process.exit(1)");
     expect(log.output()).toContain("session exited immediately");
     expect(saveSessions).not.toHaveBeenCalled();
+  });
+
+  it("notes when it strips the Remote Control kill-switch from settings", () => {
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(false)
+      .mockReturnValue(true);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+    vi.mocked(ensureRemoteControlEnabled).mockReturnValue(true);
+    const log = captureLog();
+
+    cmdStart();
+
+    expect(log.output()).toContain("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC");
+    expect(log.output()).toContain("settings.json");
   });
 
   it("warns at startup when a newer crctl version is available", () => {

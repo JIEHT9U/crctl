@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { trustDirectory } from "../claude";
+import { ensureRemoteControlEnabled, trustDirectory } from "../claude";
 import {
   DISABLE_TRAFFIC_ENV,
   LINK_WAIT_ATTEMPTS,
@@ -56,6 +56,11 @@ export function startSession(
   // dialog — that prompt would hang invisibly in the detached tmux session and
   // the browser link would never appear.
   trustDirectory(cwd);
+
+  // Strip CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC from the global settings —
+  // it disables the feature-flag evaluation Remote Control needs, so claude
+  // would otherwise exit immediately. Best-effort and only writes when set.
+  ensureRemoteControlEnabled();
 
   // Remote Control needs feature-flag evaluation, so `claude remote-control`
   // refuses to start when CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC is set.
@@ -140,6 +145,11 @@ export function cmdStart(
   console.log(`   Spawn mode: ${spawnMode}`);
   if (claudeArgs.length > 0) {
     console.log(`   Extra flags: ${claudeArgs.join(" ")}`);
+  }
+  if (ensureRemoteControlEnabled()) {
+    console.log(
+      `   ⚙️  Removed ${DISABLE_TRAFFIC_ENV} from ~/.claude/settings.json (it blocks Remote Control)`
+    );
   }
 
   const result = startSession(cwd, spawnMode, claudeArgs);

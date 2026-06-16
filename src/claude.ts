@@ -1,5 +1,9 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { CLAUDE_CONFIG_FILE } from "./constants";
+import {
+  CLAUDE_CONFIG_FILE,
+  CLAUDE_SETTINGS_FILE,
+  DISABLE_TRAFFIC_ENV,
+} from "./constants";
 
 // ─── Claude Code config integration ──────────────────────────
 //
@@ -77,6 +81,58 @@ export function trustDirectory(
       if (isDirectoryTrusted(config, cwd)) return true; // nothing to do
     }
     writeFileSync(file, JSON.stringify(withTrustedDirectory(config, cwd), null, 2));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ─── Remote Control traffic flag ─────────────────────────────
+//
+// `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` (set in the `env` block of
+// `~/.claude/settings.json`) disables the feature-flag evaluation that Remote
+// Control requires, so `claude remote-control` exits immediately while it's
+// set. crctl strips it from the *global* settings on start so a session can
+// actually come up. (Keep it in a project's `.claude/settings.json` if you
+// want that repo to stay quiet — crctl only touches the global file.)
+
+/** Whether `config.env` defines the nonessential-traffic kill-switch. */
+export function hasTrafficFlag(config: unknown): boolean {
+  const env = (config as { env?: Record<string, unknown> })?.env;
+  return !!env && typeof env === "object" && DISABLE_TRAFFIC_ENV in env;
+}
+
+/**
+ * Pure: return a copy of `config` with the traffic kill-switch removed from its
+ * `env` block. Everything else (other env vars, all other keys) is untouched.
+ */
+export function withoutTrafficFlag(config: unknown): Record<string, unknown> {
+  const base =
+    config && typeof config === "object" ? (config as Record<string, unknown>) : {};
+  if (!hasTrafficFlag(base)) return base;
+  const { [DISABLE_TRAFFIC_ENV]: _removed, ...env } = base.env as Record<
+    string,
+    unknown
+  >;
+  return { ...base, env };
+}
+
+/**
+ * Remove `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` from claude's global
+ * settings so `claude remote-control` can start.
+ *
+ * Best-effort: never throws (a failure here must not abort `crctl start`) and
+ * only writes when the flag is actually present, so a normal start touches
+ * nothing. Returns whether the file was patched.
+ */
+export function ensureRemoteControlEnabled(
+  file: string = CLAUDE_SETTINGS_FILE
+): boolean {
+  try {
+    if (!existsSync(file)) return false;
+    const config: unknown = JSON.parse(readFileSync(file, "utf8"));
+    if (!hasTrafficFlag(config)) return false;
+    writeFileSync(file, JSON.stringify(withoutTrafficFlag(config), null, 2));
     return true;
   } catch {
     return false;

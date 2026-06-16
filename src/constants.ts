@@ -20,6 +20,14 @@ export const SESSIONS_FILE = join(CONFIG_DIR, "sessions.json");
  */
 export const CLAUDE_CONFIG_FILE = join(homedir(), ".claude.json");
 
+/**
+ * Claude Code's settings file (`~/.claude/settings.json`). crctl strips the
+ * `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` kill-switch from its `env` block
+ * on start — that flag disables the feature-flag evaluation Remote Control
+ * needs, so `claude remote-control` refuses to start while it's set.
+ */
+export const CLAUDE_SETTINGS_FILE = join(homedir(), ".claude", "settings.json");
+
 /** GitHub repository (owner/name) used by `crctl update`. */
 export const REPO = "JIEHT9U/crctl";
 

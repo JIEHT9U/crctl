@@ -3057,6 +3057,7 @@ var SESSION_PREFIX = "claude-rc";
 var CONFIG_DIR = process.platform === "darwin" ? (0, import_node_path.join)((0, import_node_os.homedir)(), "Library", "Application Support", "crctl") : (0, import_node_path.join)((0, import_node_os.homedir)(), ".config", "crctl");
 var SESSIONS_FILE = (0, import_node_path.join)(CONFIG_DIR, "sessions.json");
 var CLAUDE_CONFIG_FILE = (0, import_node_path.join)((0, import_node_os.homedir)(), ".claude.json");
+var CLAUDE_SETTINGS_FILE = (0, import_node_path.join)((0, import_node_os.homedir)(), ".claude", "settings.json");
 var REPO = "JIEHT9U/crctl";
 var SYSTEMD_UNIT_NAME = "crctl.service";
 var SYSTEMD_UNIT_PATH = (0, import_node_path.join)(
@@ -3114,6 +3115,27 @@ function trustDirectory(cwd, file = CLAUDE_CONFIG_FILE) {
       if (isDirectoryTrusted(config, cwd)) return true;
     }
     (0, import_node_fs.writeFileSync)(file, JSON.stringify(withTrustedDirectory(config, cwd), null, 2));
+    return true;
+  } catch {
+    return false;
+  }
+}
+function hasTrafficFlag(config) {
+  const env = config?.env;
+  return !!env && typeof env === "object" && DISABLE_TRAFFIC_ENV in env;
+}
+function withoutTrafficFlag(config) {
+  const base = config && typeof config === "object" ? config : {};
+  if (!hasTrafficFlag(base)) return base;
+  const { [DISABLE_TRAFFIC_ENV]: _removed, ...env } = base.env;
+  return { ...base, env };
+}
+function ensureRemoteControlEnabled(file = CLAUDE_SETTINGS_FILE) {
+  try {
+    if (!(0, import_node_fs.existsSync)(file)) return false;
+    const config = JSON.parse((0, import_node_fs.readFileSync)(file, "utf8"));
+    if (!hasTrafficFlag(config)) return false;
+    (0, import_node_fs.writeFileSync)(file, JSON.stringify(withoutTrafficFlag(config), null, 2));
     return true;
   } catch {
     return false;
@@ -3330,6 +3352,7 @@ function startSession(cwd, spawnMode, extraArgs = []) {
     return { status: "failed", link: null, stderr: "directory no longer exists" };
   }
   trustDirectory(cwd);
+  ensureRemoteControlEnabled();
   const claudeArgs = [
     "env",
     "-u",
@@ -3388,6 +3411,11 @@ function cmdStart(claudeArgs = [], options = {}, version = "dev") {
   console.log(`   Spawn mode: ${spawnMode}`);
   if (claudeArgs.length > 0) {
     console.log(`   Extra flags: ${claudeArgs.join(" ")}`);
+  }
+  if (ensureRemoteControlEnabled()) {
+    console.log(
+      `   \u2699\uFE0F  Removed ${DISABLE_TRAFFIC_ENV} from ~/.claude/settings.json (it blocks Remote Control)`
+    );
   }
   const result = startSession(cwd, spawnMode, claudeArgs);
   if (result.status === "failed") {

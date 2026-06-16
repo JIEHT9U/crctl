@@ -8,13 +8,17 @@ vi.mock("node:fs", () => ({
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import {
+  ensureRemoteControlEnabled,
+  hasTrafficFlag,
   isDirectoryTrusted,
   trustDirectory,
+  withoutTrafficFlag,
   withTrustedDirectory,
 } from "../src/claude";
 
 const CWD = "/home/user/project";
 const OTHER = "/home/user/other";
+const FLAG = "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC";
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -96,6 +100,69 @@ describe("trustDirectory", () => {
     vi.mocked(readFileSync).mockReturnValue("{ not json");
 
     expect(trustDirectory(CWD, "/tmp/claude.json")).toBe(false);
+    expect(writeFileSync).not.toHaveBeenCalled();
+  });
+});
+
+describe("hasTrafficFlag", () => {
+  it("detects the kill-switch only inside env", () => {
+    expect(hasTrafficFlag({ env: { [FLAG]: "1" } })).toBe(true);
+    expect(hasTrafficFlag({ env: { [FLAG]: "" } })).toBe(true); // present counts
+    expect(hasTrafficFlag({ env: { FOO: "bar" } })).toBe(false);
+    expect(hasTrafficFlag({ [FLAG]: "1" })).toBe(false); // not inside env
+    expect(hasTrafficFlag({})).toBe(false);
+    expect(hasTrafficFlag(null)).toBe(false);
+  });
+});
+
+describe("withoutTrafficFlag", () => {
+  it("removes the kill-switch but keeps other env vars and top-level keys", () => {
+    const next = withoutTrafficFlag({
+      model: "opus",
+      env: { [FLAG]: "1", FOO: "bar" },
+    }) as any;
+    expect(next.env).toEqual({ FOO: "bar" });
+    expect(next.model).toBe("opus");
+  });
+
+  it("returns the config untouched when the flag is absent", () => {
+    const config = { env: { FOO: "bar" } };
+    expect(withoutTrafficFlag(config)).toBe(config);
+  });
+});
+
+describe("ensureRemoteControlEnabled", () => {
+  it("strips the flag and rewrites the file, preserving everything else", () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(
+      JSON.stringify({ env: { [FLAG]: "1" }, model: "opus" })
+    );
+
+    expect(ensureRemoteControlEnabled("/tmp/settings.json")).toBe(true);
+    const written = JSON.parse(vi.mocked(writeFileSync).mock.calls[0][1] as string);
+    expect(written).toEqual({ env: {}, model: "opus" });
+  });
+
+  it("does not write when the flag is absent", () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ env: { FOO: "bar" } }));
+
+    expect(ensureRemoteControlEnabled("/tmp/settings.json")).toBe(false);
+    expect(writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when the settings file is missing", () => {
+    vi.mocked(existsSync).mockReturnValue(false);
+
+    expect(ensureRemoteControlEnabled("/tmp/settings.json")).toBe(false);
+    expect(writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it("is best-effort: returns false (does not throw) on malformed JSON", () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readFileSync).mockReturnValue("{ not json");
+
+    expect(ensureRemoteControlEnabled("/tmp/settings.json")).toBe(false);
     expect(writeFileSync).not.toHaveBeenCalled();
   });
 });
