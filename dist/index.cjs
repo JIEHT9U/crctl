@@ -3073,6 +3073,7 @@ var LAUNCHD_PLIST_PATH = (0, import_node_path.join)(
   "LaunchAgents",
   `${LAUNCHD_LABEL}.plist`
 );
+var DISABLE_TRAFFIC_ENV = "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC";
 var LINK_WAIT_ATTEMPTS = 30;
 var LINK_WAIT_INTERVAL_MS = 500;
 
@@ -3258,6 +3259,9 @@ function startSession(cwd, spawnMode, extraArgs = []) {
   }
   trustDirectory(cwd);
   const claudeArgs = [
+    "env",
+    "-u",
+    DISABLE_TRAFFIC_ENV,
     "claude",
     "remote-control",
     `--spawn=${spawnMode}`,
@@ -3788,6 +3792,13 @@ function buildChecks() {
           info: result.stdout || result.stderr || "not found"
         };
       }
+    },
+    {
+      name: "Remote Control",
+      check: () => process.env[DISABLE_TRAFFIC_ENV] ? {
+        ok: true,
+        info: `\u26A0\uFE0F  ${DISABLE_TRAFFIC_ENV} is set \u2014 crctl strips it on launch (plain \`claude remote-control\` won't start)`
+      } : { ok: true, info: "ready" }
     },
     {
       name: "Shell",

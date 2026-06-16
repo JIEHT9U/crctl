@@ -42,6 +42,13 @@ export const LAUNCHD_PLIST_PATH = join(
   `${LAUNCHD_LABEL}.plist`
 );
 
+/**
+ * Env var that disables claude's "nonessential" traffic. Remote Control needs
+ * feature-flag evaluation (a network call), so `claude remote-control` refuses
+ * to start when this is set. crctl strips it from the spawned claude process.
+ */
+export const DISABLE_TRAFFIC_ENV = "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC";
+
 /** How many times to poll the pane for the browser link. */
 export const LINK_WAIT_ATTEMPTS = 30;
 

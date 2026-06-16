@@ -66,6 +66,7 @@ describe("cmdStart", () => {
     cmdStart();
 
     expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
+      "env", "-u", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
       "claude", "remote-control", "--spawn=same-dir",
     ]);
   });
@@ -81,6 +82,7 @@ describe("cmdStart", () => {
     cmdStart([], { spawn: "worktree" });
 
     expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
+      "env", "-u", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
       "claude", "remote-control", "--spawn=worktree",
     ]);
   });
@@ -132,6 +134,9 @@ describe("cmdStart", () => {
     cmdStart(["--model", "opus", "--dangerously-skip-permissions"]);
 
     expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
+      "env",
+      "-u",
+      "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
       "claude",
       "remote-control",
       "--spawn=same-dir",

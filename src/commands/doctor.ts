@@ -1,3 +1,4 @@
+import { DISABLE_TRAFFIC_ENV } from "../constants";
 import { run } from "../tmux";
 import type { DoctorCheck } from "../types";
 
@@ -26,6 +27,16 @@ export function buildChecks(): DoctorCheck[] {
           info: result.stdout || result.stderr || "not found",
         };
       },
+    },
+    {
+      name: "Remote Control",
+      check: () =>
+        process.env[DISABLE_TRAFFIC_ENV]
+          ? {
+              ok: true,
+              info: `⚠️  ${DISABLE_TRAFFIC_ENV} is set — crctl strips it on launch (plain \`claude remote-control\` won't start)`,
+            }
+          : { ok: true, info: "ready" },
     },
     {
       name: "Shell",

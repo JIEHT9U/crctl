@@ -1,6 +1,10 @@
 import { existsSync } from "node:fs";
 import { trustDirectory } from "../claude";
-import { LINK_WAIT_ATTEMPTS, LINK_WAIT_INTERVAL_MS } from "../constants";
+import {
+  DISABLE_TRAFFIC_ENV,
+  LINK_WAIT_ATTEMPTS,
+  LINK_WAIT_INTERVAL_MS,
+} from "../constants";
 import { loadSessions, saveSessions } from "../registry";
 import { getPaneContent, newSession, sessionExists } from "../tmux";
 import type { SessionEntry } from "../types";
@@ -52,7 +56,14 @@ export function startSession(
   // the browser link would never appear.
   trustDirectory(cwd);
 
+  // Remote Control needs feature-flag evaluation, so `claude remote-control`
+  // refuses to start when CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC is set.
+  // Strip it for just this process via `env -u` — robust no matter where the
+  // var lives (the user's shell, or the tmux server's inherited environment).
   const claudeArgs = [
+    "env",
+    "-u",
+    DISABLE_TRAFFIC_ENV,
     "claude",
     "remote-control",
     `--spawn=${spawnMode}`,
