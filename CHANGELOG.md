@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.2](https://github.com/JIEHT9U/crctl/compare/v0.9.1...v0.9.2) (2026-06-16)
+
+### Bug Fixes
+
+* strip CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC when spawning claude ([2bb0eb1](https://github.com/JIEHT9U/crctl/commit/2bb0eb101c44ff019fc784c0de9af2bbbfe4fca3))
+
 ## [0.9.1](https://github.com/JIEHT9U/crctl/compare/v0.9.0...v0.9.1) (2026-06-16)
 
 ### Bug Fixes
