@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.1](https://github.com/JIEHT9U/crctl/compare/v0.9.0...v0.9.1) (2026-06-16)
+
+### Bug Fixes
+
+* don't report dead sessions as started; fail clearly on missing dirs ([85acc56](https://github.com/JIEHT9U/crctl/commit/85acc5689af5898d6528fdba5a5b3d0994ac6596))
+
 ## [0.9.0](https://github.com/JIEHT9U/crctl/compare/v0.8.2...v0.9.0) (2026-06-16)
 
 ### Features
