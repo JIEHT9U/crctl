@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.11.0](https://github.com/JIEHT9U/crctl/compare/v0.10.0...v0.11.0) (2026-06-16)
+
+### Features
+
+* auto-strip CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC on start ([4eba89e](https://github.com/JIEHT9U/crctl/commit/4eba89e2e4a61d2acd62d997a29e321e027373f1))
+
 ## [0.10.0](https://github.com/JIEHT9U/crctl/compare/v0.9.2...v0.10.0) (2026-06-16)
 
 ### Features
