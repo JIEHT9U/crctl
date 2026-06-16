@@ -1,23 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../src/tmux", () => ({
-  sessionExists: vi.fn(),
-  newSession: vi.fn(),
-  getPaneContent: vi.fn(),
-}));
-vi.mock("../../src/registry", () => ({
-  loadSessions: vi.fn(),
-  saveSessions: vi.fn(),
-}));
-vi.mock("../../src/claude", () => ({ trustDirectory: vi.fn() }));
-vi.mock("../../src/utils", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../src/utils")>()),
-  sleep: vi.fn(),
-}));
+// restore is pure orchestration over startSession: mock that boundary and
+// assert how restore drives it (spawn mode, persisted flags, started/skipped/
+// failed counting). startSession's own behaviour is covered in start.test.ts.
+vi.mock("../../src/commands/start", () => ({ startSession: vi.fn() }));
+vi.mock("../../src/registry", () => ({ loadSessions: vi.fn(), saveSessions: vi.fn() }));
+vi.mock("../../src/tmux", () => ({ sessionExists: vi.fn() }));
 
 import { cmdRestore } from "../../src/commands/restore";
-import { loadSessions, saveSessions } from "../../src/registry";
-import { getPaneContent, newSession, sessionExists } from "../../src/tmux";
+import { startSession } from "../../src/commands/start";
+import { loadSessions } from "../../src/registry";
+import { sessionExists } from "../../src/tmux";
 import { captureLog } from "../helpers";
 
 const A = "/home/user/project-a";
@@ -38,8 +31,8 @@ const entry = (
 beforeEach(() => {
   vi.resetAllMocks();
   vi.restoreAllMocks();
-  vi.mocked(newSession).mockReturnValue({ stdout: "", stderr: "", code: 0 });
-  vi.mocked(getPaneContent).mockReturnValue("");
+  vi.mocked(sessionExists).mockReturnValue(false);
+  vi.mocked(startSession).mockReturnValue({ status: "started", link: null });
 });
 
 describe("cmdRestore", () => {
@@ -50,49 +43,39 @@ describe("cmdRestore", () => {
     cmdRestore();
 
     expect(log.output()).toContain("No sessions to restore");
-    expect(newSession).not.toHaveBeenCalled();
+    expect(startSession).not.toHaveBeenCalled();
   });
 
   it("re-spawns sessions that are not currently running", () => {
     vi.mocked(loadSessions).mockReturnValue({
       sessions: { [A]: entry(A, "worktree") },
     });
-    vi.mocked(sessionExists).mockReturnValue(false);
     const log = captureLog();
 
     cmdRestore();
 
-    expect(newSession).toHaveBeenCalledWith(expect.any(String), A, [
-      "claude", "remote-control", "--spawn=worktree",
-    ]);
-    expect(saveSessions).toHaveBeenCalled();
+    expect(startSession).toHaveBeenCalledWith(A, "worktree", []);
     expect(log.output()).toContain("1 started");
   });
 
   it("defaults to same-dir when no spawn mode was recorded", () => {
     vi.mocked(loadSessions).mockReturnValue({ sessions: { [A]: entry(A) } });
-    vi.mocked(sessionExists).mockReturnValue(false);
     captureLog();
 
     cmdRestore();
 
-    expect(newSession).toHaveBeenCalledWith(expect.any(String), A, [
-      "claude", "remote-control", "--spawn=same-dir",
-    ]);
+    expect(startSession).toHaveBeenCalledWith(A, "same-dir", []);
   });
 
   it("re-applies persisted extra flags when restoring", () => {
     vi.mocked(loadSessions).mockReturnValue({
       sessions: { [A]: entry(A, "same-dir", ["--model", "opus"]) },
     });
-    vi.mocked(sessionExists).mockReturnValue(false);
     captureLog();
 
     cmdRestore();
 
-    expect(newSession).toHaveBeenCalledWith(expect.any(String), A, [
-      "claude", "remote-control", "--spawn=same-dir", "--model", "opus",
-    ]);
+    expect(startSession).toHaveBeenCalledWith(A, "same-dir", ["--model", "opus"]);
   });
 
   it("skips sessions that are already running", () => {
@@ -102,26 +85,29 @@ describe("cmdRestore", () => {
 
     cmdRestore();
 
-    expect(newSession).not.toHaveBeenCalled();
+    expect(startSession).not.toHaveBeenCalled();
     expect(log.output()).toContain("already running");
     expect(log.output()).toContain("1 skipped");
   });
 
-  it("counts failures without aborting the rest", () => {
+  it("counts failures (with their reason) without aborting the rest", () => {
     vi.mocked(loadSessions).mockReturnValue({
       sessions: { [A]: entry(A), [B]: entry(B) },
     });
-    vi.mocked(sessionExists).mockReturnValue(false);
-    vi.mocked(newSession)
-      .mockReturnValueOnce({ stdout: "", stderr: "no such dir", code: 1 })
-      .mockReturnValueOnce({ stdout: "", stderr: "", code: 0 });
+    vi.mocked(startSession)
+      .mockReturnValueOnce({
+        status: "failed",
+        link: null,
+        stderr: "directory no longer exists",
+      })
+      .mockReturnValueOnce({ status: "started", link: null });
     const log = captureLog();
 
     cmdRestore();
 
-    expect(newSession).toHaveBeenCalledTimes(2);
+    expect(startSession).toHaveBeenCalledTimes(2);
     expect(log.output()).toContain("1 started");
     expect(log.output()).toContain("1 failed");
-    expect(log.output()).toContain("no such dir");
+    expect(log.output()).toContain("directory no longer exists");
   });
 });

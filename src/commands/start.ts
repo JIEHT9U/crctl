@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { trustDirectory } from "../claude";
 import { LINK_WAIT_ATTEMPTS, LINK_WAIT_INTERVAL_MS } from "../constants";
 import { loadSessions, saveSessions } from "../registry";
@@ -39,6 +40,13 @@ export function startSession(
     };
   }
 
+  // A moved/deleted project leaves a stale registry entry. tmux's own error
+  // for a missing `-c` dir is cryptic (and inconsistent across platforms), so
+  // fail early with a clear reason instead of pretending we started something.
+  if (!existsSync(cwd)) {
+    return { status: "failed", link: null, stderr: "directory no longer exists" };
+  }
+
   // Pre-trust the directory so `claude` doesn't block on the workspace-trust
   // dialog — that prompt would hang invisibly in the detached tmux session and
   // the browser link would never appear.
@@ -55,12 +63,27 @@ export function startSession(
     return { status: "failed", link: null, stderr: result.stderr };
   }
 
-  // Wait for the link to appear (up to 15 seconds)
+  // Wait for the link to appear (up to 15 seconds), bailing out the instant
+  // the session disappears.
   let link: string | null = null;
   for (let i = 0; i < LINK_WAIT_ATTEMPTS; i++) {
     sleep(LINK_WAIT_INTERVAL_MS);
+    if (!sessionExists(name)) break;
     link = extractLink(getPaneContent(name));
     if (link) break;
+  }
+
+  // `tmux new-session` exits 0 the moment the session is *created*; it does not
+  // wait to see whether `claude` survives. If claude exits immediately (crash,
+  // auth failure, missing binary) tmux tears the empty session down, so "code
+  // 0" is not the same as "running". Verify liveness before claiming success —
+  // otherwise `restore` cheerfully reports sessions that are already gone.
+  if (!sessionExists(name)) {
+    return {
+      status: "failed",
+      link: null,
+      stderr: "session exited immediately — claude failed to start (run `crctl doctor`)",
+    };
   }
 
   const data = loadSessions();

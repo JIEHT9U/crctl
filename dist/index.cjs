@@ -3044,6 +3044,9 @@ var {
   Help
 } = import_index.default;
 
+// src/commands/start.ts
+var import_node_fs3 = require("fs");
+
 // src/claude.ts
 var import_node_fs = require("fs");
 
@@ -3250,6 +3253,9 @@ function startSession(cwd, spawnMode, extraArgs = []) {
       link: loadSessions().sessions[cwd]?.link ?? null
     };
   }
+  if (!(0, import_node_fs3.existsSync)(cwd)) {
+    return { status: "failed", link: null, stderr: "directory no longer exists" };
+  }
   trustDirectory(cwd);
   const claudeArgs = [
     "claude",
@@ -3264,8 +3270,16 @@ function startSession(cwd, spawnMode, extraArgs = []) {
   let link = null;
   for (let i = 0; i < LINK_WAIT_ATTEMPTS; i++) {
     sleep(LINK_WAIT_INTERVAL_MS);
+    if (!sessionExists(name)) break;
     link = extractLink(getPaneContent(name));
     if (link) break;
+  }
+  if (!sessionExists(name)) {
+    return {
+      status: "failed",
+      link: null,
+      stderr: "session exited immediately \u2014 claude failed to start (run `crctl doctor`)"
+    };
   }
   const data = loadSessions();
   const entry = { name, cwd, pids: [], link, spawn: spawnMode };
@@ -3357,7 +3371,7 @@ function cmdRestore() {
 }
 
 // src/service.ts
-var import_node_fs3 = require("fs");
+var import_node_fs4 = require("fs");
 var import_node_os2 = require("os");
 var import_node_path3 = require("path");
 function serviceKind() {
@@ -3430,8 +3444,8 @@ function installService() {
   const { node, script } = execInfo();
   const steps = [];
   if (kind === "systemd") {
-    (0, import_node_fs3.mkdirSync)((0, import_node_path3.dirname)(SYSTEMD_UNIT_PATH), { recursive: true });
-    (0, import_node_fs3.writeFileSync)(SYSTEMD_UNIT_PATH, systemdUnitText(node, script));
+    (0, import_node_fs4.mkdirSync)((0, import_node_path3.dirname)(SYSTEMD_UNIT_PATH), { recursive: true });
+    (0, import_node_fs4.writeFileSync)(SYSTEMD_UNIT_PATH, systemdUnitText(node, script));
     steps.push(`Wrote unit: ${SYSTEMD_UNIT_PATH}`);
     const reload = run("systemctl", ["--user", "daemon-reload"]);
     const enable = run("systemctl", ["--user", "enable", SYSTEMD_UNIT_NAME]);
@@ -3441,8 +3455,8 @@ function installService() {
     return { ok, path: SYSTEMD_UNIT_PATH, steps };
   }
   if (kind === "launchd") {
-    (0, import_node_fs3.mkdirSync)((0, import_node_path3.dirname)(LAUNCHD_PLIST_PATH), { recursive: true });
-    (0, import_node_fs3.writeFileSync)(LAUNCHD_PLIST_PATH, launchdPlistText(node, script));
+    (0, import_node_fs4.mkdirSync)((0, import_node_path3.dirname)(LAUNCHD_PLIST_PATH), { recursive: true });
+    (0, import_node_fs4.writeFileSync)(LAUNCHD_PLIST_PATH, launchdPlistText(node, script));
     steps.push(`Wrote LaunchAgent: ${LAUNCHD_PLIST_PATH}`);
     run("launchctl", ["unload", LAUNCHD_PLIST_PATH]);
     const load = run("launchctl", ["load", "-w", LAUNCHD_PLIST_PATH]);
@@ -3461,9 +3475,9 @@ function uninstallService() {
   const kind = serviceKind();
   const steps = [];
   if (kind === "systemd") {
-    if ((0, import_node_fs3.existsSync)(SYSTEMD_UNIT_PATH)) {
+    if ((0, import_node_fs4.existsSync)(SYSTEMD_UNIT_PATH)) {
       run("systemctl", ["--user", "disable", SYSTEMD_UNIT_NAME]);
-      (0, import_node_fs3.unlinkSync)(SYSTEMD_UNIT_PATH);
+      (0, import_node_fs4.unlinkSync)(SYSTEMD_UNIT_PATH);
       run("systemctl", ["--user", "daemon-reload"]);
       steps.push(`Removed unit: ${SYSTEMD_UNIT_PATH}`);
     } else {
@@ -3472,9 +3486,9 @@ function uninstallService() {
     return { ok: true, path: SYSTEMD_UNIT_PATH, steps };
   }
   if (kind === "launchd") {
-    if ((0, import_node_fs3.existsSync)(LAUNCHD_PLIST_PATH)) {
+    if ((0, import_node_fs4.existsSync)(LAUNCHD_PLIST_PATH)) {
       run("launchctl", ["unload", "-w", LAUNCHD_PLIST_PATH]);
-      (0, import_node_fs3.unlinkSync)(LAUNCHD_PLIST_PATH);
+      (0, import_node_fs4.unlinkSync)(LAUNCHD_PLIST_PATH);
       steps.push(`Removed LaunchAgent: ${LAUNCHD_PLIST_PATH}`);
     } else {
       steps.push("No service installed.");
@@ -3489,8 +3503,8 @@ function uninstallService() {
 }
 function serviceInstalled() {
   const kind = serviceKind();
-  if (kind === "systemd") return (0, import_node_fs3.existsSync)(SYSTEMD_UNIT_PATH);
-  if (kind === "launchd") return (0, import_node_fs3.existsSync)(LAUNCHD_PLIST_PATH);
+  if (kind === "systemd") return (0, import_node_fs4.existsSync)(SYSTEMD_UNIT_PATH);
+  if (kind === "launchd") return (0, import_node_fs4.existsSync)(LAUNCHD_PLIST_PATH);
   return false;
 }
 
@@ -3818,7 +3832,7 @@ function cmdDoctor() {
 }
 
 // src/commands/completions.ts
-var import_node_fs4 = require("fs");
+var import_node_fs5 = require("fs");
 var import_node_os3 = require("os");
 var import_node_path4 = require("path");
 
@@ -3976,8 +3990,8 @@ function cmdSetup() {
     const completionsDir = (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".config", "fish", "completions");
     const targetPath = (0, import_node_path4.join)(completionsDir, "crctl.fish");
     try {
-      (0, import_node_fs4.mkdirSync)(completionsDir, { recursive: true });
-      (0, import_node_fs4.writeFileSync)(targetPath, compScript);
+      (0, import_node_fs5.mkdirSync)(completionsDir, { recursive: true });
+      (0, import_node_fs5.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion installed: ${targetPath}`);
       console.log("");
       console.log("   Restart your terminal or run:");
@@ -3992,7 +4006,7 @@ function cmdSetup() {
   } else if (shellName === "bash") {
     const targetPath = (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".bash_completion_crctl");
     try {
-      (0, import_node_fs4.writeFileSync)(targetPath, compScript);
+      (0, import_node_fs5.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion script: ${targetPath}`);
       console.log("");
       console.log("   Add to ~/.bashrc:");
@@ -4008,8 +4022,8 @@ function cmdSetup() {
     const zshDir = (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl");
     const targetPath = (0, import_node_path4.join)(zshDir, "_crctl");
     try {
-      (0, import_node_fs4.mkdirSync)(zshDir, { recursive: true });
-      (0, import_node_fs4.writeFileSync)(targetPath, compScript);
+      (0, import_node_fs5.mkdirSync)(zshDir, { recursive: true });
+      (0, import_node_fs5.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion script: ${targetPath}`);
       console.log("");
       console.log("   Add 'crctl' to plugins in ~/.zshrc");
@@ -4070,7 +4084,7 @@ function cmdUpdate(currentVersion) {
 }
 
 // src/commands/uninstall.ts
-var import_node_fs5 = require("fs");
+var import_node_fs6 = require("fs");
 var import_node_os4 = require("os");
 var import_node_path5 = require("path");
 function cmdUninstall() {
@@ -4086,7 +4100,7 @@ function cmdUninstall() {
     }
   }
   try {
-    (0, import_node_fs5.unlinkSync)(binaryPath);
+    (0, import_node_fs6.unlinkSync)(binaryPath);
     console.log(`\u2705 Binary removed: ${binaryPath}`);
   } catch {
     console.log(`\u26A0\uFE0F  Could not remove binary: ${binaryPath}`);
@@ -4097,14 +4111,14 @@ function cmdUninstall() {
     zsh: (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".zshrc")
   };
   const configPath = configs[shellName];
-  if (configPath && (0, import_node_fs5.existsSync)(configPath)) {
+  if (configPath && (0, import_node_fs6.existsSync)(configPath)) {
     try {
-      const originalLines = (0, import_node_fs5.readFileSync)(configPath, "utf8").split("\n");
+      const originalLines = (0, import_node_fs6.readFileSync)(configPath, "utf8").split("\n");
       const cleanedLines = originalLines.filter(
         (line) => !line.includes("crctl")
       );
       if (cleanedLines.length < originalLines.length) {
-        (0, import_node_fs5.writeFileSync)(configPath, cleanedLines.join("\n"));
+        (0, import_node_fs6.writeFileSync)(configPath, cleanedLines.join("\n"));
         console.log(`\u2705 Cleaned crctl entries from ${configPath}`);
       }
     } catch {
@@ -4117,17 +4131,17 @@ function cmdUninstall() {
     (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl", "_crctl")
   ];
   for (const path of completionPaths) {
-    if ((0, import_node_fs5.existsSync)(path)) {
+    if ((0, import_node_fs6.existsSync)(path)) {
       try {
-        (0, import_node_fs5.unlinkSync)(path);
+        (0, import_node_fs6.unlinkSync)(path);
         console.log(`\u2705 Removed completion: ${path}`);
       } catch {
       }
     }
   }
-  if ((0, import_node_fs5.existsSync)(CONFIG_DIR)) {
+  if ((0, import_node_fs6.existsSync)(CONFIG_DIR)) {
     try {
-      (0, import_node_fs5.rmSync)(CONFIG_DIR, { recursive: true, force: true });
+      (0, import_node_fs6.rmSync)(CONFIG_DIR, { recursive: true, force: true });
       console.log(`\u2705 Removed config: ${CONFIG_DIR}`);
     } catch {
       console.log(`\u26A0\uFE0F  Could not remove config: ${CONFIG_DIR}`);

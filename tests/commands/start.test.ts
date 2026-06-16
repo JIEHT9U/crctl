@@ -14,7 +14,11 @@ vi.mock("../../src/utils", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/utils")>()),
   sleep: vi.fn(),
 }));
+// start.ts only needs existsSync from node:fs; mock it directly. (Spreading
+// importOriginal() does not reliably override named exports of Node built-ins.)
+vi.mock("node:fs", () => ({ existsSync: vi.fn() }));
 
+import { existsSync } from "node:fs";
 import { cmdStart } from "../../src/commands/start";
 import { loadSessions, saveSessions } from "../../src/registry";
 import { getPaneContent, newSession, sessionExists } from "../../src/tmux";
@@ -32,6 +36,7 @@ beforeEach(() => {
   vi.mocked(loadSessions).mockReturnValue({ sessions: {} });
   vi.mocked(newSession).mockReturnValue({ stdout: "", stderr: "", code: 0 });
   vi.mocked(getPaneContent).mockReturnValue("");
+  vi.mocked(existsSync).mockReturnValue(true);
 });
 
 describe("cmdStart", () => {
@@ -51,7 +56,10 @@ describe("cmdStart", () => {
   });
 
   it("passes --spawn=same-dir to claude by default", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(getPaneContent).mockReturnValue(LINK);
     captureLog();
 
@@ -63,7 +71,10 @@ describe("cmdStart", () => {
   });
 
   it("passes --spawn=worktree when requested", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(getPaneContent).mockReturnValue(LINK);
     captureLog();
 
@@ -75,7 +86,10 @@ describe("cmdStart", () => {
   });
 
   it("saves spawn mode to the registry", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(getPaneContent).mockReturnValue(LINK);
     captureLog();
 
@@ -89,7 +103,10 @@ describe("cmdStart", () => {
   });
 
   it("starts a session and saves the captured link to the registry", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(getPaneContent).mockReturnValue(`some output\n${LINK}\nmore`);
     const log = captureLog();
 
@@ -105,7 +122,10 @@ describe("cmdStart", () => {
   });
 
   it("forwards extra flags verbatim to claude after --spawn", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(getPaneContent).mockReturnValue(LINK);
     captureLog();
 
@@ -122,7 +142,10 @@ describe("cmdStart", () => {
   });
 
   it("persists extra flags so restore can reuse them", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(getPaneContent).mockReturnValue(LINK);
     captureLog();
 
@@ -143,7 +166,10 @@ describe("cmdStart", () => {
   });
 
   it("omits the args key from the registry when no extra flags are passed", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(getPaneContent).mockReturnValue(LINK);
     captureLog();
 
@@ -154,7 +180,10 @@ describe("cmdStart", () => {
   });
 
   it("exits with an error when tmux fails to start", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(newSession).mockReturnValue({
       stdout: "",
       stderr: "tmux: command not found",
@@ -170,7 +199,10 @@ describe("cmdStart", () => {
   });
 
   it("still registers the session when the link never appears", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(getPaneContent).mockReturnValue("starting up...");
     captureLog();
 
@@ -184,7 +216,10 @@ describe("cmdStart", () => {
   });
 
   it("stops polling as soon as the link appears", () => {
-    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
     vi.mocked(getPaneContent)
       .mockReturnValueOnce("booting")
       .mockReturnValueOnce(LINK);
@@ -193,5 +228,32 @@ describe("cmdStart", () => {
     cmdStart();
 
     expect(getPaneContent).toHaveBeenCalledTimes(2);
+  });
+
+  it("reports failure when the session dies immediately after launch", () => {
+    // tmux creates the session (code 0) but claude exits at once, so the
+    // session is already gone by the time we re-check — not a real "started".
+    vi.mocked(sessionExists).mockReturnValue(false);
+    const log = captureLog();
+    trapExit();
+
+    expect(() => cmdStart()).toThrow("process.exit(1)");
+    expect(log.output()).toContain("session exited immediately");
+    expect(saveSessions).not.toHaveBeenCalled();
+  });
+
+  it("reports failure without launching when the directory no longer exists", () => {
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // cmdStart's own "already active?" guard
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter (loop + liveness verification)
+    vi.mocked(existsSync).mockReturnValue(false);
+    const log = captureLog();
+    trapExit();
+
+    expect(() => cmdStart()).toThrow("process.exit(1)");
+    expect(newSession).not.toHaveBeenCalled();
+    expect(log.output()).toContain("directory no longer exists");
+    expect(saveSessions).not.toHaveBeenCalled();
   });
 });
