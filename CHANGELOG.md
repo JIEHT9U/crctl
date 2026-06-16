@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.0](https://github.com/JIEHT9U/crctl/compare/v0.8.2...v0.9.0) (2026-06-16)
+
+### Features
+
+* forward user flags to claude via `crctl start -- <flags>` ([98ef31c](https://github.com/JIEHT9U/crctl/commit/98ef31c833e2b98ea53e024a8bc3ee16ab6f1fe3))
+
 ## [0.8.2](https://github.com/JIEHT9U/crctl/compare/v0.8.1...v0.8.2) (2026-06-15)
 
 ### Bug Fixes
