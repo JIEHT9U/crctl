@@ -6,7 +6,11 @@ vi.mock("node:child_process", () => ({
 }));
 
 import { execSync, spawnSync } from "node:child_process";
-import { cmdUpdate } from "../../src/commands/update";
+import {
+  checkUpdateAvailable,
+  cmdUpdate,
+  isNewerVersion,
+} from "../../src/commands/update";
 import { captureLog, trapExit } from "../helpers";
 
 const mockExecSync = vi.mocked(execSync);
@@ -16,6 +20,40 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.restoreAllMocks();
   mockSpawnSync.mockReturnValue({ status: 0 } as any);
+});
+
+describe("isNewerVersion", () => {
+  it("compares numeric semver components", () => {
+    expect(isNewerVersion("0.9.2", "0.9.1")).toBe(true);
+    expect(isNewerVersion("0.10.0", "0.9.9")).toBe(true);
+    expect(isNewerVersion("1.0.0", "0.9.9")).toBe(true);
+    expect(isNewerVersion("0.9.1", "0.9.1")).toBe(false);
+    expect(isNewerVersion("0.9.0", "0.9.1")).toBe(false);
+  });
+});
+
+describe("checkUpdateAvailable", () => {
+  it("returns the newer version when one exists", () => {
+    mockExecSync.mockReturnValue(JSON.stringify({ tag_name: "v0.9.3" }) as any);
+    expect(checkUpdateAvailable("0.9.2")).toBe("0.9.3");
+  });
+
+  it("returns null when already on the latest", () => {
+    mockExecSync.mockReturnValue(JSON.stringify({ tag_name: "v0.9.2" }) as any);
+    expect(checkUpdateAvailable("0.9.2")).toBeNull();
+  });
+
+  it("never probes the network for dev builds", () => {
+    expect(checkUpdateAvailable("dev")).toBeNull();
+    expect(mockExecSync).not.toHaveBeenCalled();
+  });
+
+  it("fails open (null) when the probe throws", () => {
+    mockExecSync.mockImplementation(() => {
+      throw new Error("offline");
+    });
+    expect(checkUpdateAvailable("0.9.2")).toBeNull();
+  });
 });
 
 describe("cmdUpdate", () => {

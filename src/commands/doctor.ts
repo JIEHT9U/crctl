@@ -1,6 +1,7 @@
 import { DISABLE_TRAFFIC_ENV } from "../constants";
 import { run } from "../tmux";
 import type { DoctorCheck } from "../types";
+import { checkUpdateAvailable } from "./update";
 
 export function buildChecks(): DoctorCheck[] {
   return [
@@ -53,8 +54,8 @@ export function buildChecks(): DoctorCheck[] {
   ];
 }
 
-export function cmdDoctor(): void {
-  console.log("🩺 Checking crctl dependencies:\n");
+export function cmdDoctor(version: string = "dev"): void {
+  console.log(`🩺 crctl ${version} — checking dependencies:\n`);
 
   let allOk = true;
   for (const c of buildChecks()) {
@@ -67,20 +68,27 @@ export function cmdDoctor(): void {
   console.log("");
   if (allOk) {
     console.log("✅ All dependencies ready!");
-    return;
+  } else {
+    console.log("⚠️  Some dependencies are not installed.");
+    console.log("");
+    if (process.platform === "darwin") {
+      console.log("🍎 Install on macOS:");
+      console.log("  brew install node");
+      console.log("  brew install tmux");
+      console.log("  npm install -g @anthropic-ai/claude-code");
+    } else {
+      console.log("🐧 Install on Linux:");
+      console.log("  # Node.js: nvm install --lts or from a repository package");
+      console.log("  sudo dnf install tmux");
+      console.log("  npm install -g @anthropic-ai/claude-code");
+    }
   }
 
-  console.log("⚠️  Some dependencies are not installed.");
-  console.log("");
-  if (process.platform === "darwin") {
-    console.log("🍎 Install on macOS:");
-    console.log("  brew install node");
-    console.log("  brew install tmux");
-    console.log("  npm install -g @anthropic-ai/claude-code");
-  } else {
-    console.log("🐧 Install on Linux:");
-    console.log("  # Node.js: nvm install --lts or from a repository package");
-    console.log("  sudo dnf install tmux");
-    console.log("  npm install -g @anthropic-ai/claude-code");
+  const newer = checkUpdateAvailable(version);
+  if (newer) {
+    console.log("");
+    console.log(
+      `⬆️  crctl ${newer} is available (you have ${version}). Update: crctl update`
+    );
   }
 }

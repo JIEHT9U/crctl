@@ -9,6 +9,7 @@ import { loadSessions, saveSessions } from "../registry";
 import { getPaneContent, newSession, sessionExists } from "../tmux";
 import type { SessionEntry } from "../types";
 import { extractLink, sessionName, sleep } from "../utils";
+import { checkUpdateAvailable } from "./update";
 
 export type SpawnMode = "same-dir" | "worktree";
 
@@ -110,10 +111,19 @@ export function startSession(
 
 export function cmdStart(
   claudeArgs: string[] = [],
-  options: { spawn?: SpawnMode } = {}
+  options: { spawn?: SpawnMode } = {},
+  version: string = "dev"
 ): void {
   const cwd = process.cwd();
   const spawnMode: SpawnMode = options.spawn ?? "same-dir";
+
+  const newer = checkUpdateAvailable(version);
+  if (newer) {
+    console.log(
+      `⬆️  crctl ${newer} is available (you have ${version}) — run: crctl update`
+    );
+    console.log("");
+  }
 
   if (sessionExists(sessionName(cwd))) {
     const entry = loadSessions().sessions[cwd];

@@ -17,9 +17,11 @@ vi.mock("../../src/utils", async (importOriginal) => ({
 // start.ts only needs existsSync from node:fs; mock it directly. (Spreading
 // importOriginal() does not reliably override named exports of Node built-ins.)
 vi.mock("node:fs", () => ({ existsSync: vi.fn() }));
+vi.mock("../../src/commands/update", () => ({ checkUpdateAvailable: vi.fn() }));
 
 import { existsSync } from "node:fs";
 import { cmdStart } from "../../src/commands/start";
+import { checkUpdateAvailable } from "../../src/commands/update";
 import { loadSessions, saveSessions } from "../../src/registry";
 import { getPaneContent, newSession, sessionExists } from "../../src/tmux";
 import { sessionName } from "../../src/utils";
@@ -37,6 +39,7 @@ beforeEach(() => {
   vi.mocked(newSession).mockReturnValue({ stdout: "", stderr: "", code: 0 });
   vi.mocked(getPaneContent).mockReturnValue("");
   vi.mocked(existsSync).mockReturnValue(true);
+  vi.mocked(checkUpdateAvailable).mockReturnValue(null);
 });
 
 describe("cmdStart", () => {
@@ -245,6 +248,21 @@ describe("cmdStart", () => {
     expect(() => cmdStart()).toThrow("process.exit(1)");
     expect(log.output()).toContain("session exited immediately");
     expect(saveSessions).not.toHaveBeenCalled();
+  });
+
+  it("warns at startup when a newer crctl version is available", () => {
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(false)
+      .mockReturnValue(true);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+    vi.mocked(checkUpdateAvailable).mockReturnValue("0.9.9");
+    const log = captureLog();
+
+    cmdStart([], {}, "0.9.2");
+
+    expect(log.output()).toContain("0.9.9 is available");
+    expect(log.output()).toContain("crctl update");
   });
 
   it("reports failure without launching when the directory no longer exists", () => {

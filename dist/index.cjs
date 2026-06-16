@@ -3245,6 +3245,78 @@ function detectShell(shellEnv) {
   return "bash";
 }
 
+// src/commands/update.ts
+var import_node_child_process2 = require("child_process");
+function isNewerVersion(latest, current) {
+  const parse = (v) => v.split(".").map((n) => parseInt(n, 10) || 0);
+  const a = parse(latest);
+  const b = parse(current);
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const x = a[i] ?? 0;
+    const y = b[i] ?? 0;
+    if (x !== y) return x > y;
+  }
+  return false;
+}
+function checkUpdateAvailable(currentVersion) {
+  if (!currentVersion || currentVersion === "dev") return null;
+  try {
+    const output = (0, import_node_child_process2.execSync)(
+      `curl -s --max-time 3 https://api.github.com/repos/${REPO}/releases/latest`,
+      { encoding: "utf8" }
+    );
+    const latest = JSON.parse(output);
+    if (latest && typeof latest.tag_name === "string") {
+      const latestVersion = latest.tag_name.replace(/^v/, "");
+      if (isNewerVersion(latestVersion, currentVersion)) return latestVersion;
+    }
+  } catch {
+  }
+  return null;
+}
+function cmdUpdate(currentVersion) {
+  console.log("\u{1F504} Checking for updates...");
+  try {
+    const output = (0, import_node_child_process2.execSync)(
+      `curl -s https://api.github.com/repos/${REPO}/releases/latest`,
+      { encoding: "utf8" }
+    );
+    const latest = JSON.parse(output);
+    if (!latest || typeof latest.tag_name !== "string") {
+      console.log("\u274C Could not determine the latest version.");
+      console.log("   (GitHub API rate limit or no releases yet?)");
+      process.exit(1);
+    }
+    const latestVersion = latest.tag_name.replace(/^v/, "");
+    if (latestVersion === currentVersion) {
+      console.log(`\u2705 crctl is already up to date (${currentVersion}).`);
+      return;
+    }
+    console.log(
+      `\u{1F680} New version available: ${latestVersion} (you have ${currentVersion})`
+    );
+    console.log("   Updating...");
+    const result = (0, import_node_child_process2.spawnSync)(
+      "sh",
+      [
+        "-c",
+        `curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh`
+      ],
+      { stdio: "inherit" }
+    );
+    if (result.status === 0) {
+      console.log(`\u2705 Updated to ${latestVersion}!`);
+    } else {
+      console.log("\u274C Update failed.");
+      process.exit(1);
+    }
+  } catch (err) {
+    console.log("\u274C Failed to check for updates.");
+    console.log(`   Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
 // src/commands/start.ts
 function startSession(cwd, spawnMode, extraArgs = []) {
   const name = sessionName(cwd);
@@ -3292,9 +3364,16 @@ function startSession(cwd, spawnMode, extraArgs = []) {
   saveSessions(data);
   return { status: "started", link };
 }
-function cmdStart(claudeArgs = [], options = {}) {
+function cmdStart(claudeArgs = [], options = {}, version = "dev") {
   const cwd = process.cwd();
   const spawnMode = options.spawn ?? "same-dir";
+  const newer = checkUpdateAvailable(version);
+  if (newer) {
+    console.log(
+      `\u2B06\uFE0F  crctl ${newer} is available (you have ${version}) \u2014 run: crctl update`
+    );
+    console.log("");
+  }
   if (sessionExists(sessionName(cwd))) {
     const entry = loadSessions().sessions[cwd];
     console.log(`\u26A0\uFE0F  Session already active for ${cwd}`);
@@ -3559,7 +3638,7 @@ function cmdServiceStatus() {
 }
 
 // src/processes.ts
-var import_node_child_process2 = require("child_process");
+var import_node_child_process3 = require("child_process");
 function parseClaudePids(psOutput, excludePid) {
   const pids = [];
   for (const line of psOutput.split("\n")) {
@@ -3574,7 +3653,7 @@ function parseClaudePids(psOutput, excludePid) {
 }
 function findClaudeProcesses() {
   try {
-    const output = (0, import_node_child_process2.execSync)("ps aux", { encoding: "utf8" });
+    const output = (0, import_node_child_process3.execSync)("ps aux", { encoding: "utf8" });
     return parseClaudePids(output, process.pid);
   } catch {
     return [];
@@ -3813,8 +3892,9 @@ function buildChecks() {
     }
   ];
 }
-function cmdDoctor() {
-  console.log("\u{1FA7A} Checking crctl dependencies:\n");
+function cmdDoctor(version = "dev") {
+  console.log(`\u{1FA7A} crctl ${version} \u2014 checking dependencies:
+`);
   let allOk = true;
   for (const c of buildChecks()) {
     const { ok, info } = c.check();
@@ -3825,20 +3905,27 @@ function cmdDoctor() {
   console.log("");
   if (allOk) {
     console.log("\u2705 All dependencies ready!");
-    return;
-  }
-  console.log("\u26A0\uFE0F  Some dependencies are not installed.");
-  console.log("");
-  if (process.platform === "darwin") {
-    console.log("\u{1F34E} Install on macOS:");
-    console.log("  brew install node");
-    console.log("  brew install tmux");
-    console.log("  npm install -g @anthropic-ai/claude-code");
   } else {
-    console.log("\u{1F427} Install on Linux:");
-    console.log("  # Node.js: nvm install --lts or from a repository package");
-    console.log("  sudo dnf install tmux");
-    console.log("  npm install -g @anthropic-ai/claude-code");
+    console.log("\u26A0\uFE0F  Some dependencies are not installed.");
+    console.log("");
+    if (process.platform === "darwin") {
+      console.log("\u{1F34E} Install on macOS:");
+      console.log("  brew install node");
+      console.log("  brew install tmux");
+      console.log("  npm install -g @anthropic-ai/claude-code");
+    } else {
+      console.log("\u{1F427} Install on Linux:");
+      console.log("  # Node.js: nvm install --lts or from a repository package");
+      console.log("  sudo dnf install tmux");
+      console.log("  npm install -g @anthropic-ai/claude-code");
+    }
+  }
+  const newer = checkUpdateAvailable(version);
+  if (newer) {
+    console.log("");
+    console.log(
+      `\u2B06\uFE0F  crctl ${newer} is available (you have ${version}). Update: crctl update`
+    );
   }
 }
 
@@ -4049,51 +4136,6 @@ function cmdSetup() {
   }
 }
 
-// src/commands/update.ts
-var import_node_child_process3 = require("child_process");
-function cmdUpdate(currentVersion) {
-  console.log("\u{1F504} Checking for updates...");
-  try {
-    const output = (0, import_node_child_process3.execSync)(
-      `curl -s https://api.github.com/repos/${REPO}/releases/latest`,
-      { encoding: "utf8" }
-    );
-    const latest = JSON.parse(output);
-    if (!latest || typeof latest.tag_name !== "string") {
-      console.log("\u274C Could not determine the latest version.");
-      console.log("   (GitHub API rate limit or no releases yet?)");
-      process.exit(1);
-    }
-    const latestVersion = latest.tag_name.replace(/^v/, "");
-    if (latestVersion === currentVersion) {
-      console.log(`\u2705 crctl is already up to date (${currentVersion}).`);
-      return;
-    }
-    console.log(
-      `\u{1F680} New version available: ${latestVersion} (you have ${currentVersion})`
-    );
-    console.log("   Updating...");
-    const result = (0, import_node_child_process3.spawnSync)(
-      "sh",
-      [
-        "-c",
-        `curl -fsSL https://raw.githubusercontent.com/${REPO}/main/install.sh | sh`
-      ],
-      { stdio: "inherit" }
-    );
-    if (result.status === 0) {
-      console.log(`\u2705 Updated to ${latestVersion}!`);
-    } else {
-      console.log("\u274C Update failed.");
-      process.exit(1);
-    }
-  } catch (err) {
-    console.log("\u274C Failed to check for updates.");
-    console.log(`   Error: ${err.message}`);
-    process.exit(1);
-  }
-}
-
 // src/commands/uninstall.ts
 var import_node_fs6 = require("fs");
 var import_node_os4 = require("os");
@@ -4187,7 +4229,9 @@ Examples:
 Anything after \`--\` is passed straight to \`claude remote-control\` and is
 remembered, so \`crctl restore\` / autostart bring the session back with the
 same flags.`
-).action(cmdStart);
+).action(
+  (claudeArgs, options) => cmdStart(claudeArgs, options, VERSION)
+);
 program2.command("stop").description("Stop Claude Code session (current directory)").option("-g, --global", "Stop ALL sessions in all directories").action(cmdStop);
 program2.command("status").description("Show Claude Code session status").option("-g, --global", "Show all sessions in all directories").action(cmdStatus);
 program2.command("attach").description("Attach to the current directory's tmux session").action(cmdAttach);
@@ -4198,7 +4242,7 @@ var service = program2.command("service").description("Manage the autostart serv
 service.command("install").description("Install and enable the autostart service").action(cmdServiceInstall);
 service.command("uninstall").description("Disable and remove the autostart service").action(cmdServiceUninstall);
 service.command("status").description("Show whether the autostart service is installed").action(cmdServiceStatus);
-program2.command("doctor").description("Check all dependencies and show install instructions").action(cmdDoctor);
+program2.command("doctor").description("Check all dependencies and show install instructions").action(() => cmdDoctor(VERSION));
 program2.command("generate").description("Generate shell completion script (bash|fish|zsh)").argument("<shell>", "Shell type: bash, fish, or zsh").action(cmdGenerate);
 program2.command("setup").description("Auto-detect your shell and install completions").action(cmdSetup);
 program2.command("update").description("Check for updates and upgrade to the latest version").action(() => cmdUpdate(VERSION));

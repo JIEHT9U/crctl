@@ -53,7 +53,9 @@ Anything after \`--\` is passed straight to \`claude remote-control\` and is
 remembered, so \`crctl restore\` / autostart bring the session back with the
 same flags.`
   )
-  .action(cmdStart);
+  .action((claudeArgs: string[], options: { spawn?: "same-dir" | "worktree" }) =>
+    cmdStart(claudeArgs, options, VERSION)
+  );
 
 program
   .command("stop")
@@ -109,7 +111,7 @@ service
 program
   .command("doctor")
   .description("Check all dependencies and show install instructions")
-  .action(cmdDoctor);
+  .action(() => cmdDoctor(VERSION));
 
 program
   .command("generate")

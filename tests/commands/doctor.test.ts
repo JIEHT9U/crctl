@@ -3,8 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../src/tmux", () => ({
   run: vi.fn(),
 }));
+vi.mock("../../src/commands/update", () => ({ checkUpdateAvailable: vi.fn() }));
 
 import { buildChecks, cmdDoctor } from "../../src/commands/doctor";
+import { checkUpdateAvailable } from "../../src/commands/update";
 import { run } from "../../src/tmux";
 import { captureLog } from "../helpers";
 
@@ -12,6 +14,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   vi.restoreAllMocks();
   vi.mocked(run).mockReturnValue({ stdout: "tmux 3.4", stderr: "", code: 0 });
+  vi.mocked(checkUpdateAvailable).mockReturnValue(null);
   delete process.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC;
 });
 
@@ -66,5 +69,17 @@ describe("cmdDoctor", () => {
     expect(out).toContain("❌");
     expect(out).toContain("Some dependencies are not installed");
     expect(out).toContain("@anthropic-ai/claude-code");
+  });
+
+  it("prints the version and an update notice when one is available", () => {
+    vi.mocked(checkUpdateAvailable).mockReturnValue("0.9.9");
+    const log = captureLog();
+
+    cmdDoctor("0.9.2");
+
+    const out = log.output();
+    expect(out).toContain("crctl 0.9.2");
+    expect(out).toContain("0.9.9 is available");
+    expect(out).toContain("crctl update");
   });
 });
