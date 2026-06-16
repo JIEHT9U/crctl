@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.10.0](https://github.com/JIEHT9U/crctl/compare/v0.9.2...v0.10.0) (2026-06-16)
+
+### Features
+
+* show version and check for updates in doctor and start ([38cc927](https://github.com/JIEHT9U/crctl/commit/38cc927a1aad0846bae1277ff668c05d8e360184))
+
 ## [0.9.2](https://github.com/JIEHT9U/crctl/compare/v0.9.1...v0.9.2) (2026-06-16)
 
 ### Bug Fixes
