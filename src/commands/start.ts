@@ -30,11 +30,17 @@ export interface StartResult {
  * `extraArgs` are appended verbatim to the `claude remote-control` invocation
  * (e.g. `--model`, `--dangerously-skip-permissions`) and persisted so that
  * `restore`/autostart bring the session back with the same flags.
+ *
+ * When `options.resume` is a session-id, the session is brought up with
+ * `claude --resume <id> --remote-control` instead of a fresh server, so the
+ * exact prior conversation comes back online (used by `restore` after a
+ * reboot). `extraArgs` still apply; `spawnMode` is irrelevant in this mode.
  */
 export function startSession(
   cwd: string,
   spawnMode: SpawnMode,
-  extraArgs: string[] = []
+  extraArgs: string[] = [],
+  options: { resume?: string | null } = {}
 ): StartResult {
   const name = sessionName(cwd);
 
@@ -62,19 +68,27 @@ export function startSession(
   // would otherwise exit immediately. Best-effort and only writes when set.
   ensureRemoteControlEnabled();
 
-  // Remote Control needs feature-flag evaluation, so `claude remote-control`
-  // refuses to start when CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC is set.
-  // Strip it for just this process via `env -u` — robust no matter where the
-  // var lives (the user's shell, or the tmux server's inherited environment).
-  const claudeArgs = [
-    "env",
-    "-u",
-    DISABLE_TRAFFIC_ENV,
-    "claude",
-    "remote-control",
-    `--spawn=${spawnMode}`,
-    ...extraArgs,
-  ];
+  // Remote Control needs feature-flag evaluation, so claude refuses to start
+  // when CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC is set. Strip it for just
+  // this process via `env -u` — robust no matter where the var lives (the
+  // user's shell, or the tmux server's inherited environment).
+  //
+  // Two shapes: a fresh multi-session server (`claude remote-control`), or —
+  // when resuming — a single interactive session that re-opens a specific
+  // conversation and exposes it remotely (`claude --resume <id> --rc`). The
+  // `remote-control` subcommand can't resume; only the top-level flag can.
+  const resume = options.resume ?? null;
+  const claudeArgs = resume
+    ? [
+        "env", "-u", DISABLE_TRAFFIC_ENV,
+        "claude", "--resume", resume, "--remote-control",
+        ...extraArgs,
+      ]
+    : [
+        "env", "-u", DISABLE_TRAFFIC_ENV,
+        "claude", "remote-control", `--spawn=${spawnMode}`,
+        ...extraArgs,
+      ];
   const result = newSession(name, cwd, claudeArgs);
   if (result.code !== 0) {
     return { status: "failed", link: null, stderr: result.stderr };

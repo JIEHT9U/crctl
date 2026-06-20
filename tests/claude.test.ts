@@ -4,13 +4,17 @@ vi.mock("node:fs", () => ({
   existsSync: vi.fn(),
   readFileSync: vi.fn(),
   writeFileSync: vi.fn(),
+  readdirSync: vi.fn(),
+  statSync: vi.fn(),
 }));
 
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import {
+  claudeProjectDir,
   ensureRemoteControlEnabled,
   hasTrafficFlag,
   isDirectoryTrusted,
+  latestSessionId,
   trustDirectory,
   withoutTrafficFlag,
   withTrustedDirectory,
@@ -164,5 +168,66 @@ describe("ensureRemoteControlEnabled", () => {
 
     expect(ensureRemoteControlEnabled("/tmp/settings.json")).toBe(false);
     expect(writeFileSync).not.toHaveBeenCalled();
+  });
+});
+
+describe("claudeProjectDir", () => {
+  it("replaces / and . with - to match Claude's transcript dir names", () => {
+    expect(claudeProjectDir("/home/me/app")).toBe("-home-me-app");
+    expect(claudeProjectDir("/home/me/.config")).toBe("-home-me--config");
+    expect(claudeProjectDir("/a/b.c/d")).toBe("-a-b-c-d");
+  });
+});
+
+describe("latestSessionId", () => {
+  const PROJECTS = "/projects";
+
+  it("returns null when the project has no transcript directory", () => {
+    vi.mocked(existsSync).mockReturnValue(false);
+    expect(latestSessionId(CWD, PROJECTS)).toBeNull();
+    expect(readdirSync).not.toHaveBeenCalled();
+  });
+
+  it("returns the session-id of the newest .jsonl transcript", () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readdirSync).mockReturnValue([
+      "old.jsonl",
+      "newest.jsonl",
+      "mid.jsonl",
+    ] as any);
+    const mtimes: Record<string, number> = {
+      "/projects/-home-user-project/old.jsonl": 100,
+      "/projects/-home-user-project/newest.jsonl": 300,
+      "/projects/-home-user-project/mid.jsonl": 200,
+    };
+    vi.mocked(statSync).mockImplementation(
+      (p: any) => ({ mtimeMs: mtimes[p] }) as any
+    );
+
+    expect(latestSessionId(CWD, PROJECTS)).toBe("newest");
+  });
+
+  it("ignores non-transcript files", () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readdirSync).mockReturnValue(["notes.txt", "only.jsonl"] as any);
+    vi.mocked(statSync).mockReturnValue({ mtimeMs: 1 } as any);
+
+    expect(latestSessionId(CWD, PROJECTS)).toBe("only");
+  });
+
+  it("returns null when the directory holds no transcripts", () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readdirSync).mockReturnValue(["README.md"] as any);
+
+    expect(latestSessionId(CWD, PROJECTS)).toBeNull();
+  });
+
+  it("is best-effort: returns null (does not throw) on a filesystem error", () => {
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readdirSync).mockImplementation(() => {
+      throw new Error("EACCES");
+    });
+
+    expect(latestSessionId(CWD, PROJECTS)).toBeNull();
   });
 });

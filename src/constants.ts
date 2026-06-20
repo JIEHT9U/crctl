@@ -28,6 +28,15 @@ export const CLAUDE_CONFIG_FILE = join(homedir(), ".claude.json");
  */
 export const CLAUDE_SETTINGS_FILE = join(homedir(), ".claude", "settings.json");
 
+/**
+ * Claude Code's per-project conversation store (`~/.claude/projects`). Each
+ * project gets a subdirectory (its absolute path with `/` and `.` turned into
+ * `-`) holding one `<session-id>.jsonl` transcript per conversation. crctl
+ * reads this to find the chat you were last working in so `restore` can resume
+ * it after a reboot instead of spawning an empty one.
+ */
+export const CLAUDE_PROJECTS_DIR = join(homedir(), ".claude", "projects");
+
 /** GitHub repository (owner/name) used by `crctl update`. */
 export const REPO = "JIEHT9U/crctl";
 

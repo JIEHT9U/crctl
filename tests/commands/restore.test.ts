@@ -6,7 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../src/commands/start", () => ({ startSession: vi.fn() }));
 vi.mock("../../src/registry", () => ({ loadSessions: vi.fn(), saveSessions: vi.fn() }));
 vi.mock("../../src/tmux", () => ({ sessionExists: vi.fn() }));
+vi.mock("../../src/claude", () => ({ latestSessionId: vi.fn() }));
 
+import { latestSessionId } from "../../src/claude";
 import { cmdRestore } from "../../src/commands/restore";
 import { startSession } from "../../src/commands/start";
 import { loadSessions } from "../../src/registry";
@@ -33,6 +35,8 @@ beforeEach(() => {
   vi.restoreAllMocks();
   vi.mocked(sessionExists).mockReturnValue(false);
   vi.mocked(startSession).mockReturnValue({ status: "started", link: null });
+  // Default: no prior transcript, so restore falls back to a fresh session.
+  vi.mocked(latestSessionId).mockReturnValue(null);
 });
 
 describe("cmdRestore", () => {
@@ -54,8 +58,31 @@ describe("cmdRestore", () => {
 
     cmdRestore();
 
-    expect(startSession).toHaveBeenCalledWith(A, "worktree", []);
+    expect(startSession).toHaveBeenCalledWith(A, "worktree", [], { resume: null });
     expect(log.output()).toContain("1 started");
+  });
+
+  it("resumes the project's most recent conversation when one exists", () => {
+    vi.mocked(loadSessions).mockReturnValue({ sessions: { [A]: entry(A) } });
+    vi.mocked(latestSessionId).mockReturnValue("sid-123");
+    const log = captureLog();
+
+    cmdRestore();
+
+    expect(latestSessionId).toHaveBeenCalledWith(A);
+    expect(startSession).toHaveBeenCalledWith(A, "same-dir", [], { resume: "sid-123" });
+    expect(log.output()).toContain("resumed last chat");
+  });
+
+  it("falls back to a fresh session when the project has no transcript", () => {
+    vi.mocked(loadSessions).mockReturnValue({ sessions: { [A]: entry(A) } });
+    vi.mocked(latestSessionId).mockReturnValue(null);
+    const log = captureLog();
+
+    cmdRestore();
+
+    expect(startSession).toHaveBeenCalledWith(A, "same-dir", [], { resume: null });
+    expect(log.output()).toContain("(fresh)");
   });
 
   it("defaults to same-dir when no spawn mode was recorded", () => {
@@ -64,7 +91,7 @@ describe("cmdRestore", () => {
 
     cmdRestore();
 
-    expect(startSession).toHaveBeenCalledWith(A, "same-dir", []);
+    expect(startSession).toHaveBeenCalledWith(A, "same-dir", [], { resume: null });
   });
 
   it("re-applies persisted extra flags when restoring", () => {
@@ -75,7 +102,9 @@ describe("cmdRestore", () => {
 
     cmdRestore();
 
-    expect(startSession).toHaveBeenCalledWith(A, "same-dir", ["--model", "opus"]);
+    expect(startSession).toHaveBeenCalledWith(A, "same-dir", ["--model", "opus"], {
+      resume: null,
+    });
   });
 
   it("skips sessions that are already running", () => {

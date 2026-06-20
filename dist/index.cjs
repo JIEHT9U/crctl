@@ -3049,6 +3049,7 @@ var import_node_fs3 = require("fs");
 
 // src/claude.ts
 var import_node_fs = require("fs");
+var import_node_path2 = require("path");
 
 // src/constants.ts
 var import_node_path = require("path");
@@ -3058,6 +3059,7 @@ var CONFIG_DIR = process.platform === "darwin" ? (0, import_node_path.join)((0, 
 var SESSIONS_FILE = (0, import_node_path.join)(CONFIG_DIR, "sessions.json");
 var CLAUDE_CONFIG_FILE = (0, import_node_path.join)((0, import_node_os.homedir)(), ".claude.json");
 var CLAUDE_SETTINGS_FILE = (0, import_node_path.join)((0, import_node_os.homedir)(), ".claude", "settings.json");
+var CLAUDE_PROJECTS_DIR = (0, import_node_path.join)((0, import_node_os.homedir)(), ".claude", "projects");
 var REPO = "JIEHT9U/crctl";
 var SYSTEMD_UNIT_NAME = "crctl.service";
 var SYSTEMD_UNIT_PATH = (0, import_node_path.join)(
@@ -3141,10 +3143,23 @@ function ensureRemoteControlEnabled(file = CLAUDE_SETTINGS_FILE) {
     return false;
   }
 }
+function claudeProjectDir(cwd) {
+  return cwd.replace(/[/.]/g, "-");
+}
+function latestSessionId(cwd, projectsDir = CLAUDE_PROJECTS_DIR) {
+  try {
+    const dir = (0, import_node_path2.join)(projectsDir, claudeProjectDir(cwd));
+    if (!(0, import_node_fs.existsSync)(dir)) return null;
+    const newest = (0, import_node_fs.readdirSync)(dir).filter((f) => f.endsWith(".jsonl")).map((f) => ({ id: f.slice(0, -".jsonl".length), mtime: (0, import_node_fs.statSync)((0, import_node_path2.join)(dir, f)).mtimeMs })).sort((a, b) => b.mtime - a.mtime)[0];
+    return newest?.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 // src/registry.ts
 var import_node_fs2 = require("fs");
-var import_node_path2 = require("path");
+var import_node_path3 = require("path");
 function loadSessions(file = SESSIONS_FILE) {
   if (!(0, import_node_fs2.existsSync)(file)) {
     return { sessions: {} };
@@ -3160,7 +3175,7 @@ function loadSessions(file = SESSIONS_FILE) {
   }
 }
 function saveSessions(data, file = SESSIONS_FILE) {
-  (0, import_node_fs2.mkdirSync)((0, import_node_path2.dirname)(file), { recursive: true });
+  (0, import_node_fs2.mkdirSync)((0, import_node_path3.dirname)(file), { recursive: true });
   (0, import_node_fs2.writeFileSync)(file, JSON.stringify(data, null, 2));
 }
 
@@ -3340,7 +3355,7 @@ function cmdUpdate(currentVersion) {
 }
 
 // src/commands/start.ts
-function startSession(cwd, spawnMode, extraArgs = []) {
+function startSession(cwd, spawnMode, extraArgs = [], options = {}) {
   const name = sessionName(cwd);
   if (sessionExists(name)) {
     return {
@@ -3353,7 +3368,17 @@ function startSession(cwd, spawnMode, extraArgs = []) {
   }
   trustDirectory(cwd);
   ensureRemoteControlEnabled();
-  const claudeArgs = [
+  const resume = options.resume ?? null;
+  const claudeArgs = resume ? [
+    "env",
+    "-u",
+    DISABLE_TRAFFIC_ENV,
+    "claude",
+    "--resume",
+    resume,
+    "--remote-control",
+    ...extraArgs
+  ] : [
     "env",
     "-u",
     DISABLE_TRAFFIC_ENV,
@@ -3460,14 +3485,16 @@ function cmdRestore() {
       console.log(`   \u23ED\uFE0F  ${entry.cwd} (already running)`);
       continue;
     }
+    const resume = latestSessionId(entry.cwd);
     const result = startSession(
       entry.cwd,
       entry.spawn ?? "same-dir",
-      entry.args ?? []
+      entry.args ?? [],
+      { resume }
     );
     if (result.status === "started") {
       started++;
-      console.log(`   \u2705 ${entry.cwd}`);
+      console.log(`   \u2705 ${entry.cwd}${resume ? " (resumed last chat)" : " (fresh)"}`);
     } else if (result.status === "already-running") {
       skipped++;
       console.log(`   \u23ED\uFE0F  ${entry.cwd} (already running)`);
@@ -3484,23 +3511,23 @@ function cmdRestore() {
 // src/service.ts
 var import_node_fs4 = require("fs");
 var import_node_os2 = require("os");
-var import_node_path3 = require("path");
+var import_node_path4 = require("path");
 function serviceKind() {
   if (process.platform === "linux") return "systemd";
   if (process.platform === "darwin") return "launchd";
   return "unsupported";
 }
 function execInfo() {
-  return { node: process.execPath, script: (0, import_node_path3.resolve)(process.argv[1]) };
+  return { node: process.execPath, script: (0, import_node_path4.resolve)(process.argv[1]) };
 }
 function servicePath(node, script) {
   const dirs = [
-    (0, import_node_path3.dirname)(node),
-    (0, import_node_path3.dirname)(script),
+    (0, import_node_path4.dirname)(node),
+    (0, import_node_path4.dirname)(script),
     "/usr/local/bin",
     "/usr/bin",
     "/bin",
-    (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".local", "bin")
+    (0, import_node_path4.join)((0, import_node_os2.homedir)(), ".local", "bin")
   ];
   return [...new Set(dirs)].join(":");
 }
@@ -3555,7 +3582,7 @@ function installService() {
   const { node, script } = execInfo();
   const steps = [];
   if (kind === "systemd") {
-    (0, import_node_fs4.mkdirSync)((0, import_node_path3.dirname)(SYSTEMD_UNIT_PATH), { recursive: true });
+    (0, import_node_fs4.mkdirSync)((0, import_node_path4.dirname)(SYSTEMD_UNIT_PATH), { recursive: true });
     (0, import_node_fs4.writeFileSync)(SYSTEMD_UNIT_PATH, systemdUnitText(node, script));
     steps.push(`Wrote unit: ${SYSTEMD_UNIT_PATH}`);
     const reload = run("systemctl", ["--user", "daemon-reload"]);
@@ -3566,7 +3593,7 @@ function installService() {
     return { ok, path: SYSTEMD_UNIT_PATH, steps };
   }
   if (kind === "launchd") {
-    (0, import_node_fs4.mkdirSync)((0, import_node_path3.dirname)(LAUNCHD_PLIST_PATH), { recursive: true });
+    (0, import_node_fs4.mkdirSync)((0, import_node_path4.dirname)(LAUNCHD_PLIST_PATH), { recursive: true });
     (0, import_node_fs4.writeFileSync)(LAUNCHD_PLIST_PATH, launchdPlistText(node, script));
     steps.push(`Wrote LaunchAgent: ${LAUNCHD_PLIST_PATH}`);
     run("launchctl", ["unload", LAUNCHD_PLIST_PATH]);
@@ -4084,7 +4111,7 @@ function cmdDoctor(version = "dev") {
 // src/commands/completions.ts
 var import_node_fs5 = require("fs");
 var import_node_os3 = require("os");
-var import_node_path4 = require("path");
+var import_node_path5 = require("path");
 
 // src/completions.ts
 var FISH_COMPLETION = `
@@ -4247,8 +4274,8 @@ function cmdSetup() {
   console.log(`\u{1F41A} Detected shell: ${shellName} (${shell})`);
   const compScript = getCompletionScript(shellName);
   if (shellName === "fish") {
-    const completionsDir = (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".config", "fish", "completions");
-    const targetPath = (0, import_node_path4.join)(completionsDir, "crctl.fish");
+    const completionsDir = (0, import_node_path5.join)((0, import_node_os3.homedir)(), ".config", "fish", "completions");
+    const targetPath = (0, import_node_path5.join)(completionsDir, "crctl.fish");
     try {
       (0, import_node_fs5.mkdirSync)(completionsDir, { recursive: true });
       (0, import_node_fs5.writeFileSync)(targetPath, compScript);
@@ -4264,7 +4291,7 @@ function cmdSetup() {
       console.log(`   crctl generate fish > ${targetPath}`);
     }
   } else if (shellName === "bash") {
-    const targetPath = (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".bash_completion_crctl");
+    const targetPath = (0, import_node_path5.join)((0, import_node_os3.homedir)(), ".bash_completion_crctl");
     try {
       (0, import_node_fs5.writeFileSync)(targetPath, compScript);
       console.log(`\u2705 Auto-completion script: ${targetPath}`);
@@ -4279,8 +4306,8 @@ function cmdSetup() {
       console.log(`   echo 'source ${targetPath}' >> ~/.bashrc`);
     }
   } else {
-    const zshDir = (0, import_node_path4.join)((0, import_node_os3.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl");
-    const targetPath = (0, import_node_path4.join)(zshDir, "_crctl");
+    const zshDir = (0, import_node_path5.join)((0, import_node_os3.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl");
+    const targetPath = (0, import_node_path5.join)(zshDir, "_crctl");
     try {
       (0, import_node_fs5.mkdirSync)(zshDir, { recursive: true });
       (0, import_node_fs5.writeFileSync)(targetPath, compScript);
@@ -4301,7 +4328,7 @@ function cmdSetup() {
 // src/commands/uninstall.ts
 var import_node_fs6 = require("fs");
 var import_node_os4 = require("os");
-var import_node_path5 = require("path");
+var import_node_path6 = require("path");
 function cmdUninstall() {
   const binaryPath = process.argv[1];
   const shellName = detectShell(process.env.SHELL || "");
@@ -4321,9 +4348,9 @@ function cmdUninstall() {
     console.log(`\u26A0\uFE0F  Could not remove binary: ${binaryPath}`);
   }
   const configs = {
-    fish: (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".config", "fish", "config.fish"),
-    bash: (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".bashrc"),
-    zsh: (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".zshrc")
+    fish: (0, import_node_path6.join)((0, import_node_os4.homedir)(), ".config", "fish", "config.fish"),
+    bash: (0, import_node_path6.join)((0, import_node_os4.homedir)(), ".bashrc"),
+    zsh: (0, import_node_path6.join)((0, import_node_os4.homedir)(), ".zshrc")
   };
   const configPath = configs[shellName];
   if (configPath && (0, import_node_fs6.existsSync)(configPath)) {
@@ -4341,9 +4368,9 @@ function cmdUninstall() {
     }
   }
   const completionPaths = [
-    (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".config", "fish", "completions", "crctl.fish"),
-    (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".bash_completion_crctl"),
-    (0, import_node_path5.join)((0, import_node_os4.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl", "_crctl")
+    (0, import_node_path6.join)((0, import_node_os4.homedir)(), ".config", "fish", "completions", "crctl.fish"),
+    (0, import_node_path6.join)((0, import_node_os4.homedir)(), ".bash_completion_crctl"),
+    (0, import_node_path6.join)((0, import_node_os4.homedir)(), ".oh-my-zsh", "custom", "plugins", "crctl", "_crctl")
   ];
   for (const path of completionPaths) {
     if ((0, import_node_fs6.existsSync)(path)) {

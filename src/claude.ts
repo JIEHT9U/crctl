@@ -1,6 +1,8 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   CLAUDE_CONFIG_FILE,
+  CLAUDE_PROJECTS_DIR,
   CLAUDE_SETTINGS_FILE,
   DISABLE_TRAFFIC_ENV,
 } from "./constants";
@@ -136,5 +138,47 @@ export function ensureRemoteControlEnabled(
     return true;
   } catch {
     return false;
+  }
+}
+
+// ─── Conversation resume ─────────────────────────────────────
+//
+// Remote Control runs as a local process; a reboot kills it and ends the
+// session, so the chat in the browser goes dead. The conversation transcript
+// survives on disk, though, and `claude --resume <id> --remote-control` brings
+// that exact conversation back online. The helpers below let `restore` find
+// which conversation to resume for a project directory.
+
+/**
+ * Pure: Claude's directory name for a project's transcripts — the absolute
+ * path with every `/` and `.` replaced by `-` (e.g. `/home/me/app` →
+ * `-home-me-app`, `/home/me/.config` → `-home-me--config`).
+ */
+export function claudeProjectDir(cwd: string): string {
+  return cwd.replace(/[/.]/g, "-");
+}
+
+/**
+ * Session-id of the most recently active conversation for `cwd` (the chat you
+ * were last working in), or null when the project has no transcripts yet.
+ *
+ * Transcripts are `<session-id>.jsonl` files; the freshest mtime is the chat
+ * that was open before a reboot. Best-effort: any filesystem hiccup yields
+ * null, so `restore` simply falls back to spawning a fresh session.
+ */
+export function latestSessionId(
+  cwd: string,
+  projectsDir: string = CLAUDE_PROJECTS_DIR
+): string | null {
+  try {
+    const dir = join(projectsDir, claudeProjectDir(cwd));
+    if (!existsSync(dir)) return null;
+    const newest = readdirSync(dir)
+      .filter((f) => f.endsWith(".jsonl"))
+      .map((f) => ({ id: f.slice(0, -".jsonl".length), mtime: statSync(join(dir, f)).mtimeMs }))
+      .sort((a, b) => b.mtime - a.mtime)[0];
+    return newest?.id ?? null;
+  } catch {
+    return null;
   }
 }

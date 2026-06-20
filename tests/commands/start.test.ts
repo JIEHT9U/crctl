@@ -24,7 +24,7 @@ vi.mock("../../src/commands/update", () => ({ checkUpdateAvailable: vi.fn() }));
 
 import { existsSync } from "node:fs";
 import { ensureRemoteControlEnabled } from "../../src/claude";
-import { cmdStart } from "../../src/commands/start";
+import { cmdStart, startSession } from "../../src/commands/start";
 import { checkUpdateAvailable } from "../../src/commands/update";
 import { loadSessions, saveSessions } from "../../src/registry";
 import { getPaneContent, newSession, sessionExists } from "../../src/tmux";
@@ -298,5 +298,52 @@ describe("cmdStart", () => {
     expect(newSession).not.toHaveBeenCalled();
     expect(log.output()).toContain("directory no longer exists");
     expect(saveSessions).not.toHaveBeenCalled();
+  });
+});
+
+describe("startSession (resume mode)", () => {
+  it("brings the session up with `claude --resume <id> --remote-control`", () => {
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false) // startSession's initial check
+      .mockReturnValue(true); // alive thereafter
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+
+    const result = startSession(CWD, "same-dir", [], { resume: "sid-abc" });
+
+    expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
+      "env", "-u", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+      "claude", "--resume", "sid-abc", "--remote-control",
+    ]);
+    expect(result.status).toBe("started");
+    expect(result.link).toBe(LINK);
+  });
+
+  it("forwards extra flags after --remote-control when resuming", () => {
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false)
+      .mockReturnValue(true);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+
+    startSession(CWD, "same-dir", ["--model", "opus"], { resume: "sid-abc" });
+
+    expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
+      "env", "-u", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+      "claude", "--resume", "sid-abc", "--remote-control",
+      "--model", "opus",
+    ]);
+  });
+
+  it("uses the fresh server command when no resume id is given", () => {
+    vi.mocked(sessionExists)
+      .mockReturnValueOnce(false)
+      .mockReturnValue(true);
+    vi.mocked(getPaneContent).mockReturnValue(LINK);
+
+    startSession(CWD, "same-dir", []);
+
+    expect(newSession).toHaveBeenCalledWith(NAME, CWD, [
+      "env", "-u", "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+      "claude", "remote-control", "--spawn=same-dir",
+    ]);
   });
 });
