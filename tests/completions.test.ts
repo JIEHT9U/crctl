@@ -10,6 +10,7 @@ import {
 const ALL_COMMANDS = [
   "start",
   "stop",
+  "clean",
   "status",
   "attach",
   "link",

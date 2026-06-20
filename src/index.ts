@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import {
   cmdAttach,
+  cmdClean,
   cmdDetach,
   cmdDoctor,
   cmdGenerate,
@@ -62,6 +63,27 @@ program
   .description("Stop Claude Code session (current directory)")
   .option("-g, --global", "Stop ALL sessions in all directories")
   .action(cmdStop);
+
+program
+  .command("clean")
+  .description("Remove stale session entries from the registry (current directory)")
+  .option("-g, --global", "Remove ALL stale entries in all directories")
+  .option("-f, --force", "Kill a live session before removing its entry")
+  .addHelpText(
+    "after",
+    `
+crctl clean only manages the registry (sessions.json); tmux is the source of
+truth. A dead session leaves a stale entry that restore/autostart would bring
+back — clean drops it. A live session is left alone (use --force to tear it
+down first, or run \`crctl stop\`).
+
+Examples:
+  crctl clean              # drop the current dir's entry if its session is dead
+  crctl clean --force      # kill the current dir's live session, then drop it
+  crctl clean -g           # prune every dead entry, keep live ones
+  crctl clean -g --force   # remove every entry, killing live sessions too`
+  )
+  .action(cmdClean);
 
 program
   .command("status")

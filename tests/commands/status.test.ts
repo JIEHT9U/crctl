@@ -61,6 +61,52 @@ describe("cmdStatus (current directory)", () => {
     expect(log.output()).not.toContain("orphaned");
   });
 
+  it("shows the saved spawn mode and args when the session is active", () => {
+    vi.mocked(sessionExists).mockReturnValue(true);
+    vi.mocked(loadSessions).mockReturnValue({
+      sessions: {
+        [CWD]: {
+          name: NAME,
+          cwd: CWD,
+          pids: [],
+          spawn: "worktree",
+          args: ["--model", "opus"],
+        },
+      },
+    });
+    const log = captureLog();
+
+    cmdStatus({});
+
+    const out = log.output();
+    expect(out).toContain("Spawn: worktree");
+    expect(out).toContain("--model opus");
+  });
+
+  it("surfaces a stale registry entry for a dead session", () => {
+    vi.mocked(sessionExists).mockReturnValue(false);
+    vi.mocked(loadSessions).mockReturnValue({
+      sessions: {
+        [CWD]: {
+          name: NAME,
+          cwd: CWD,
+          pids: [],
+          spawn: "worktree",
+          args: ["--model", "opus"],
+        },
+      },
+    });
+    const log = captureLog();
+
+    cmdStatus({});
+
+    const out = log.output();
+    expect(out).toContain("Stale registry entry");
+    expect(out).toContain("Spawn: worktree");
+    expect(out).toContain("--model opus");
+    expect(out).toContain("crctl clean");
+  });
+
   it("warns about orphaned processes when none can belong to another session", () => {
     vi.mocked(sessionExists).mockReturnValue(false);
     vi.mocked(findClaudeProcesses).mockReturnValue([1111]);
@@ -137,5 +183,48 @@ describe("cmdStatus --global", () => {
     cmdStatus({ global: true });
 
     expect(log.output()).toContain("No active crctl sessions");
+  });
+
+  it("lists stale registry entries in their own section", () => {
+    vi.mocked(loadSessions).mockReturnValue({
+      sessions: {
+        [CWD]: { name: NAME, cwd: CWD, pids: [], link: LINK },
+        [OTHER_CWD]: {
+          name: sessionName(OTHER_CWD),
+          cwd: OTHER_CWD,
+          pids: [],
+          spawn: "worktree",
+        },
+      },
+    });
+    // CWD live, OTHER dead
+    vi.mocked(sessionExists).mockImplementation((n) => n === NAME);
+    const log = captureLog();
+
+    cmdStatus({ global: true });
+
+    const out = log.output();
+    expect(out).toContain("Active crctl sessions");
+    expect(out).toContain("Stale entries");
+    expect(out).toContain(OTHER_CWD);
+    expect(out).toContain("Spawn: worktree");
+    expect(out).toContain("crctl clean -g");
+  });
+
+  it("shows stale entries even when no session is live", () => {
+    vi.mocked(loadSessions).mockReturnValue({
+      sessions: {
+        [CWD]: { name: NAME, cwd: CWD, pids: [] },
+      },
+    });
+    vi.mocked(sessionExists).mockReturnValue(false);
+    const log = captureLog();
+
+    cmdStatus({ global: true });
+
+    const out = log.output();
+    expect(out).toContain("Stale entries");
+    expect(out).toContain(CWD);
+    expect(out).not.toContain("No active crctl sessions");
   });
 });

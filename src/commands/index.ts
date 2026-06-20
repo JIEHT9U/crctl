@@ -6,6 +6,7 @@ export {
   cmdServiceStatus,
 } from "./service";
 export { cmdStop } from "./stop";
+export { cmdClean } from "./clean";
 export { cmdStatus } from "./status";
 export { cmdAttach, cmdDetach } from "./attach";
 export { cmdLink } from "./link";

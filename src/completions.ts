@@ -20,6 +20,7 @@ end
 
 complete -c crctl -f -n '__fish_use_subcommand' -a 'start' -d 'Start Claude Code in remote-control mode'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'stop' -d 'Stop Claude Code session'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'clean' -d 'Remove stale session entries from the registry'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'status' -d 'Show Claude Code session status'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'attach' -d 'Attach to tmux session'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'detach' -d 'Detach from session without stopping it'
@@ -33,7 +34,8 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'update' -d 'Check for update
 complete -c crctl -f -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove crctl and clean up'
 complete -c crctl -f -s V -l version -d 'Version'
 complete -c crctl -f -s h -l help -d 'Help'
-complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) stop status' -s g -l global -d 'Apply to all sessions'
+complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) stop status clean' -s g -l global -d 'Apply to all sessions'
+complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) clean' -s f -l force -d 'Kill live session before removing its entry'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) start' -l spawn -x -a 'same-dir worktree' -d 'Spawn mode'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) generate' -a 'bash fish zsh' -d 'Shell type'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) service' -a 'install uninstall status' -d 'Service action'
@@ -43,7 +45,7 @@ export const BASH_COMPLETION = `
 # crctl — bash completion
 _crctl() {
     local cur prev cmds
-    cmds="start stop status attach detach link restore service doctor setup generate update uninstall"
+    cmds="start stop clean status attach detach link restore service doctor setup generate update uninstall"
     COMPREPLY=()
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
@@ -60,6 +62,9 @@ _crctl() {
             ;;
         stop|status)
             COMPREPLY=( $(compgen -W "-g --global" -- "\${cur}") )
+            ;;
+        clean)
+            COMPREPLY=( $(compgen -W "-g --global -f --force" -- "\${cur}") )
             ;;
         start)
             COMPREPLY=( $(compgen -W "--spawn" -- "\${cur}") )
@@ -84,6 +89,7 @@ _crctl() {
     commands=(
         'start:Start Claude Code in remote-control mode'
         'stop:Stop Claude Code session'
+        'clean:Remove stale session entries from the registry'
         'status:Show Claude Code session status'
         'attach:Attach to tmux session'
         'detach:Detach from session without stopping it'
@@ -110,6 +116,10 @@ _crctl() {
             case $words[1] in
                 stop|status)
                     _arguments '(-g --global)'{-g,--global}'[Apply to all sessions]' ;;
+                clean)
+                    _arguments \\
+                        '(-g --global)'{-g,--global}'[Remove all stale entries]' \\
+                        '(-f --force)'{-f,--force}'[Kill live session before removing its entry]' ;;
                 start)
                     _arguments '--spawn[Spawn mode]:mode:(same-dir worktree)' ;;
                 generate)

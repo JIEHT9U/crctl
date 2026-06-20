@@ -3751,39 +3751,152 @@ function cmdStop(options) {
   }
 }
 
+// src/commands/clean.ts
+function cmdClean(options = {}) {
+  const data = loadSessions();
+  if (options.global) {
+    cleanGlobal(data, options.force ?? false);
+    return;
+  }
+  const cwd = process.cwd();
+  const name = sessionName(cwd);
+  const entry = data.sessions[cwd];
+  if (!entry) {
+    console.log(`\u2139\uFE0F  No registry entry for ${cwd} \u2014 nothing to clean.`);
+    return;
+  }
+  const alive = sessionExists(name);
+  if (alive && !options.force) {
+    console.log(`\u26A0\uFE0F  Session is still running for ${cwd}.`);
+    console.log("   Stop it first:    crctl stop");
+    console.log("   Or force removal: crctl clean --force");
+    return;
+  }
+  if (alive && options.force) {
+    console.log(`\u{1F6D1} Killing live session for ${cwd}...`);
+    killSession(name);
+    delete data.sessions[cwd];
+    sleep(1e3);
+    sweepOrphans(data);
+    saveSessions(data);
+    console.log(`\u2705 Killed session and removed registry entry for ${cwd}.`);
+    return;
+  }
+  delete data.sessions[cwd];
+  saveSessions(data);
+  console.log(`\u{1F9F9} Removed stale registry entry for ${cwd}.`);
+}
+function cleanGlobal(data, force) {
+  const entries = Object.values(data.sessions);
+  if (entries.length === 0) {
+    console.log("\u2139\uFE0F  Registry is empty \u2014 nothing to clean.");
+    return;
+  }
+  const removed = [];
+  const skipped = [];
+  let killedAny = false;
+  for (const s of entries) {
+    if (!sessionExists(s.name)) {
+      delete data.sessions[s.cwd];
+      removed.push({ cwd: s.cwd, reason: "dead" });
+    } else if (force) {
+      killSession(s.name);
+      killedAny = true;
+      delete data.sessions[s.cwd];
+      removed.push({ cwd: s.cwd, reason: "killed" });
+    } else {
+      skipped.push(s.cwd);
+    }
+  }
+  if (killedAny) {
+    sleep(1e3);
+    sweepOrphans(data);
+  }
+  saveSessions(data);
+  if (removed.length === 0) {
+    console.log("\u2139\uFE0F  No stale entries to clean.");
+  } else {
+    console.log(
+      `\u{1F9F9} Cleaned ${removed.length} ${plural(removed.length, "entry", "entries")} from the registry:`
+    );
+    for (const r of removed) {
+      const tag = r.reason === "killed" ? "killed (--force)" : "dead";
+      console.log(`   \u{1F4C2} ${r.cwd}  [${tag}]`);
+    }
+  }
+  if (skipped.length > 0) {
+    console.log("");
+    console.log(
+      `\u2139\uFE0F  Left ${skipped.length} live ${plural(skipped.length, "session", "sessions")} untouched (use --force to remove):`
+    );
+    for (const cwd of skipped) console.log(`   \u{1F4C2} ${cwd}`);
+  }
+}
+function sweepOrphans(data) {
+  const stillLive = Object.values(data.sessions).some(
+    (s) => sessionExists(s.name)
+  );
+  const pids = stillLive ? [] : findClaudeProcesses();
+  if (pids.length > 0) {
+    console.log(`   Killing orphaned processes: ${pids.join(" ")}`);
+    killPids(pids);
+  }
+}
+function plural(n, one, many) {
+  return n === 1 ? one : many;
+}
+
 // src/commands/status.ts
+function logParams(entry, indent) {
+  console.log(`${indent}Spawn: ${entry.spawn ?? "same-dir"}`);
+  if (entry.args && entry.args.length > 0) {
+    console.log(`${indent}Args: ${entry.args.join(" ")}`);
+  }
+}
 function cmdStatus(options) {
   if (options.global) {
     const data2 = loadSessions();
-    const sessions = Object.values(data2.sessions).filter(
-      (s) => sessionExists(s.name)
-    );
-    if (sessions.length === 0) {
+    const all = Object.values(data2.sessions);
+    const live = all.filter((s) => sessionExists(s.name));
+    const stale = all.filter((s) => !sessionExists(s.name));
+    if (live.length > 0) {
+      console.log("\u{1F30D} Active crctl sessions:");
+      console.log("");
+      for (const s of live) {
+        console.log(`  \u{1F4C2} ${s.cwd}`);
+        console.log(`     Session: ${s.name}`);
+        console.log(`     PID: ${getPanePid(s.name)}`);
+        logParams(s, "     ");
+        if (s.link) {
+          console.log(`     \u{1F517} ${s.link}`);
+        }
+        console.log("");
+      }
+    } else {
       const tmuxSessions = listCrctlSessions();
-      if (tmuxSessions.length === 0) {
+      if (tmuxSessions.length > 0) {
+        console.log("\u{1F30D} Active crctl sessions:");
+        console.log("");
+        for (const s of tmuxSessions) {
+          console.log(`  \u{1F4C2} ${s.path}`);
+          console.log(`     Session: ${s.name}`);
+          console.log(`     PID: ${getPanePid(s.name)}`);
+          console.log("");
+        }
+      } else if (stale.length === 0) {
         console.log("No active crctl sessions");
         return;
       }
-      console.log("\u{1F30D} Active crctl sessions:");
+    }
+    if (stale.length > 0) {
+      console.log("\u{1F9DF} Stale entries (session dead \u2014 run: crctl clean -g):");
       console.log("");
-      for (const s of tmuxSessions) {
-        console.log(`  \u{1F4C2} ${s.path}`);
+      for (const s of stale) {
+        console.log(`  \u{1F4C2} ${s.cwd}`);
         console.log(`     Session: ${s.name}`);
-        console.log(`     PID: ${getPanePid(s.name)}`);
+        logParams(s, "     ");
         console.log("");
       }
-      return;
-    }
-    console.log("\u{1F30D} Active crctl sessions:");
-    console.log("");
-    for (const s of sessions) {
-      console.log(`  \u{1F4C2} ${s.cwd}`);
-      console.log(`     Session: ${s.name}`);
-      console.log(`     PID: ${getPanePid(s.name)}`);
-      if (s.link) {
-        console.log(`     \u{1F517} ${s.link}`);
-      }
-      console.log("");
     }
     return;
   }
@@ -3795,6 +3908,9 @@ function cmdStatus(options) {
   if (active) {
     console.log(`\u2705 Session active for ${cwd}`);
     console.log(`   Session: ${name}`);
+    if (entry) {
+      logParams(entry, "   ");
+    }
     if (entry?.link) {
       console.log(`   \u{1F517} ${entry.link}`);
     }
@@ -3802,6 +3918,14 @@ function cmdStatus(options) {
     return;
   }
   console.log(`\u274C Session not running for ${cwd}`);
+  if (entry) {
+    console.log(`   Stale registry entry (was last started with):`);
+    logParams(entry, "     ");
+    if (entry.link) {
+      console.log(`     \u{1F517} ${entry.link}`);
+    }
+    console.log(`   Remove it with: crctl clean`);
+  }
   const othersActive = Object.values(data.sessions).some(
     (s) => s.cwd !== cwd && sessionExists(s.name)
   );
@@ -3983,6 +4107,7 @@ end
 
 complete -c crctl -f -n '__fish_use_subcommand' -a 'start' -d 'Start Claude Code in remote-control mode'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'stop' -d 'Stop Claude Code session'
+complete -c crctl -f -n '__fish_use_subcommand' -a 'clean' -d 'Remove stale session entries from the registry'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'status' -d 'Show Claude Code session status'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'attach' -d 'Attach to tmux session'
 complete -c crctl -f -n '__fish_use_subcommand' -a 'detach' -d 'Detach from session without stopping it'
@@ -3996,7 +4121,8 @@ complete -c crctl -f -n '__fish_use_subcommand' -a 'update' -d 'Check for update
 complete -c crctl -f -n '__fish_use_subcommand' -a 'uninstall' -d 'Remove crctl and clean up'
 complete -c crctl -f -s V -l version -d 'Version'
 complete -c crctl -f -s h -l help -d 'Help'
-complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) stop status' -s g -l global -d 'Apply to all sessions'
+complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) stop status clean' -s g -l global -d 'Apply to all sessions'
+complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) clean' -s f -l force -d 'Kill live session before removing its entry'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) start' -l spawn -x -a 'same-dir worktree' -d 'Spawn mode'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) generate' -a 'bash fish zsh' -d 'Shell type'
 complete -c crctl -f -n 'contains -- (__fish_crctl_current_sub) service' -a 'install uninstall status' -d 'Service action'
@@ -4005,7 +4131,7 @@ var BASH_COMPLETION = `
 # crctl \u2014 bash completion
 _crctl() {
     local cur prev cmds
-    cmds="start stop status attach detach link restore service doctor setup generate update uninstall"
+    cmds="start stop clean status attach detach link restore service doctor setup generate update uninstall"
     COMPREPLY=()
     cur="\${COMP_WORDS[COMP_CWORD]}"
     prev="\${COMP_WORDS[COMP_CWORD-1]}"
@@ -4022,6 +4148,9 @@ _crctl() {
             ;;
         stop|status)
             COMPREPLY=( $(compgen -W "-g --global" -- "\${cur}") )
+            ;;
+        clean)
+            COMPREPLY=( $(compgen -W "-g --global -f --force" -- "\${cur}") )
             ;;
         start)
             COMPREPLY=( $(compgen -W "--spawn" -- "\${cur}") )
@@ -4045,6 +4174,7 @@ _crctl() {
     commands=(
         'start:Start Claude Code in remote-control mode'
         'stop:Stop Claude Code session'
+        'clean:Remove stale session entries from the registry'
         'status:Show Claude Code session status'
         'attach:Attach to tmux session'
         'detach:Detach from session without stopping it'
@@ -4071,6 +4201,10 @@ _crctl() {
             case $words[1] in
                 stop|status)
                     _arguments '(-g --global)'{-g,--global}'[Apply to all sessions]' ;;
+                clean)
+                    _arguments \\
+                        '(-g --global)'{-g,--global}'[Remove all stale entries]' \\
+                        '(-f --force)'{-f,--force}'[Kill live session before removing its entry]' ;;
                 start)
                     _arguments '--spawn[Spawn mode]:mode:(same-dir worktree)' ;;
                 generate)
@@ -4261,6 +4395,20 @@ same flags.`
   (claudeArgs, options) => cmdStart(claudeArgs, options, VERSION)
 );
 program2.command("stop").description("Stop Claude Code session (current directory)").option("-g, --global", "Stop ALL sessions in all directories").action(cmdStop);
+program2.command("clean").description("Remove stale session entries from the registry (current directory)").option("-g, --global", "Remove ALL stale entries in all directories").option("-f, --force", "Kill a live session before removing its entry").addHelpText(
+  "after",
+  `
+crctl clean only manages the registry (sessions.json); tmux is the source of
+truth. A dead session leaves a stale entry that restore/autostart would bring
+back \u2014 clean drops it. A live session is left alone (use --force to tear it
+down first, or run \`crctl stop\`).
+
+Examples:
+  crctl clean              # drop the current dir's entry if its session is dead
+  crctl clean --force      # kill the current dir's live session, then drop it
+  crctl clean -g           # prune every dead entry, keep live ones
+  crctl clean -g --force   # remove every entry, killing live sessions too`
+).action(cmdClean);
 program2.command("status").description("Show Claude Code session status").option("-g, --global", "Show all sessions in all directories").action(cmdStatus);
 program2.command("attach").description("Attach to the current directory's tmux session").action(cmdAttach);
 program2.command("detach").description("Detach from session without stopping it (alias: Ctrl+B D inside tmux)").action(cmdDetach);
