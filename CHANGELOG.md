@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/JIEHT9U/crctl/compare/v0.11.0...v0.12.0) (2026-06-21)
+
+### Features
+
+* add `clean` command to prune stale registry entries ([76bf988](https://github.com/JIEHT9U/crctl/commit/76bf988ef107f2620ac7a8cf351368639a7bf752))
+* restore resumes your last conversation instead of an empty session ([f5a2b0c](https://github.com/JIEHT9U/crctl/commit/f5a2b0c71d7f5bfa550a3d95cbdfa61745989f65))
+
 ## [0.11.0](https://github.com/JIEHT9U/crctl/compare/v0.10.0...v0.11.0) (2026-06-16)
 
 ### Features
