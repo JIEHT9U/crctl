@@ -26,6 +26,7 @@ src/
 ├── registry.ts     # sessions.json load/save (path injectable for tests)
 ├── tmux.ts         # every tmux invocation lives here
 ├── processes.ts    # ps-based discovery + killing of claude processes
+├── claude.ts       # pre-trusts cwd in ~/.claude.json (skips claude's trust dialog)
 ├── service.ts      # autostart: systemd (Linux) / launchd (macOS) unit logic
 ├── completions.ts  # bash/fish/zsh completion script texts
 └── commands/       # one file per CLI command (start, stop, status, …)
@@ -48,6 +49,15 @@ Conventions:
   `~/Library/Application Support/crctl` on macOS). Treat the registry as a
   cache: tmux is the source of truth, the registry may be stale or missing
   and every command must survive that.
+- **`src/claude.ts` pre-trusts the working directory** in `~/.claude.json`
+  (`hasTrustDialogAccepted`) before launch, so the tmux-detached `claude` process
+  doesn't hang invisibly on the "Do you trust the files in this folder?" dialog.
+  Pure config transforms, tested in `tests/claude.test.ts`.
+- **Shell completions are hand-maintained.** The bash/fish/zsh command lists in
+  `src/completions.ts` do NOT derive from commander, so a new or renamed CLI command
+  (and any subcommands, e.g. `service install|uninstall|status`) won't autocomplete
+  until added there. `tests/completions.test.ts` guards this — add the command to its
+  `ALL_COMMANDS` list so the omission fails CI.
 
 ## Testing
 
